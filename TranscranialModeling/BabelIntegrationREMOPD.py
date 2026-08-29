@@ -85,6 +85,16 @@ def GenerateSingleElem(FREQ=300e3,PPW=12.0):
     return Tx
     
 
+def DeviceFrameSteering(XSteering, YSteering):
+    '''
+    Map GUI steering into REMOPD device axes.
+
+    BabelBrain +X matches REMOPD/Brainsight tool +X.
+    BabelBrain +Y is opposite REMOPD +Y, so only Y is negated.
+    Returned values are the electronic-focus offsets in the simulation domain.
+    '''
+    return XSteering, -YSteering
+
 def GenerateREMOPDTx(subsetLimit=128,RotationZ=0.0,Frequency=300e3):
    
     #%This is the indiv tx element
@@ -93,8 +103,10 @@ def GenerateREMOPDTx(subsetLimit=128,RotationZ=0.0,Frequency=300e3):
 
     transLoc = computeREMOPDGeometry()
 
-    rotateMatrixZ = np.array([[-np.cos(RotationZ),np.sin(RotationZ),0],
-                              [-np.sin(RotationZ),-np.cos(RotationZ),0],[0,0,1]])
+    #RotationZ is specified in degrees, consistent with the GUI and the other phased arrays
+    RotationZRad=np.deg2rad(RotationZ)
+    rotateMatrixZ = np.array([[-np.cos(RotationZRad),np.sin(RotationZRad),0],
+                              [-np.sin(RotationZRad),-np.cos(RotationZRad),0],[0,0,1]])
             
 
     ALLConfigs={'Total':{},'Sector1':{},'Sector2':{}}
@@ -167,8 +179,14 @@ class RUN_SIM(RUN_SIM_BASE):
         self._YSteering=YSteering
         self._ZSteering=ZSteering
         self._TxSet=TxSet
-        
-        return super().RunCases(**kargs)
+        extrasuffix=kargs.pop('extrasuffix','')
+        extrasuffix += "_Steer_X_%2.1f_Y_%2.1f_Z_%2.1f_Rot_%2.1f_" % (
+            XSteering*1e3, YSteering*1e3, ZSteering*1e3, RotationZ)
+        steerX, steerY = DeviceFrameSteering(XSteering, YSteering)
+        return super().RunCases(extrasuffix=extrasuffix,
+                                ExtraAdjustX=[steerX],
+                                ExtraAdjustY=[steerY],
+                                **kargs)
         
 ##########################################
 
@@ -265,7 +283,7 @@ class SimulationConditions(SimulationConditionsBASE):
                       XSteering=0.0, #lateral steering
                       YSteering=0.0,
                       ZSteering=0.0,
-                      RotationZ=0.0,#rotation of Tx over Z axis
+                      RotationZ=0.0,#rotation of Tx over Z axis, in degrees
                       TxSet='Total', #Total selects all the 256 elements, Sector1 the central 128 elements, and Sector2 the external 128
                       **kargs):
         super().__init__(Aperture=Aperture,FocalLength=FocalLength,
@@ -329,11 +347,12 @@ class SimulationConditions(SimulationConditionsBASE):
             u0=np.zeros((1),np.complex64)
             u0[0]=1+0j
             center=np.zeros((1,3),np.float32)
-            center[0,0]=self._XDim[self._FocalSpotLocation[0]]+self._TxMechanicalAdjustmentX+self._XSteering
-            center[0,1]=self._YDim[self._FocalSpotLocation[1]]+self._TxMechanicalAdjustmentY+self._YSteering
+            steerX, steerY = DeviceFrameSteering(self._XSteering, self._YSteering)
+            center[0,0]=self._XDim[self._FocalSpotLocation[0]]+self._TxMechanicalAdjustmentX+steerX
+            center[0,1]=self._YDim[self._FocalSpotLocation[1]]+self._TxMechanicalAdjustmentY+steerY
             center[0,2]=self._ZDim[self._ZSourceLocation]+self._ZSteering+zCorrec
 
-            print('center',center,np.mean(self._TxREMOPD['elemcenter'][:,2]))
+            print('center',center,'device-frame XY',(steerX, steerY),np.mean(self._TxREMOPD['elemcenter'][:,2]))
             
             u2back=ForwardSimple(cwvnb_extlay,center,ds.astype(np.float32),u0,self._TxREMOPD['elemcenter'].astype(np.float32),deviceMetal=deviceName)
             u0=np.zeros((self._TxREMOPD['center'].shape[0],1),np.complex64)

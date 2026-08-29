@@ -71,6 +71,13 @@ class REMOPD(BabelBasePhaseArray):
         self.Widget.CalculateMechAdj.clicked.connect(self.CalculateMechAdj)
         self.Widget.CalculateMechAdj.setEnabled(False)
         self.up_load_ui()
+
+    def GetExtraSuffixAcFields(self):
+        return "_Steer_X_%2.1f_Y_%2.1f_Z_%2.1f_Rot_%2.1f_" % (
+            self.Widget.XSteeringSpinBox.value(),
+            self.Widget.YSteeringSpinBox.value(),
+            self.Widget.ZSteeringSpinBox.value(),
+            self.Widget.ZRotationSpinBox.value())
         
     @Slot()
     def UpdateDistanceFromSkin(self):

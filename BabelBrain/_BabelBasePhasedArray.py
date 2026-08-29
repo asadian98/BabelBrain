@@ -302,11 +302,12 @@ class BabelBasePhaseArray(BabelBaseTx):
                 SelP='p_amp'
             
             if self._MainApp.Config['bInUseWithBrainsight']:
+                extrasuffix=self.GetExtraSuffixAcFields()
                 if Skull['bDoRefocusing']:
                     #we update the name to be loaded in BSight
-                    self._MainApp._BrainsightInput=self._MainApp._prefix_path+'FullElasticSolutionRefocus_Sub_NORM.nii.gz'
+                    self._MainApp._BrainsightInput=self._MainApp._prefix_path+extrasuffix+'FullElasticSolutionRefocus_Sub_NORM.nii.gz'
                 else:
-                    self._MainApp._BrainsightInput=self._MainApp._prefix_path+'FullElasticSolution_Sub_NORM.nii.gz'
+                    self._MainApp._BrainsightInput=self._MainApp._prefix_path+extrasuffix+'FullElasticSolution_Sub_NORM.nii.gz'
             self.ExportStep2Results(Skull)
 
             LocTarget=Skull['TargetLocation']

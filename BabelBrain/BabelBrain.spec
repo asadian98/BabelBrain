@@ -197,6 +197,12 @@ if "Darwin" in platform.system():  # For MAC systems
     binaries += tmp_ret[1]
     datas += tmp_ret[0]
 
+    # Metal compute backend used by GPU listing and Step 1 kernels
+    tmp_ret = collect_all("metalcomputebabel")
+    binaries += tmp_ret[1]
+    datas += tmp_ret[0]
+    hiddenimports += tmp_ret[2]
+
     # Trimesh
     tmp_ret = collect_all("trimesh")
     hiddenimports += tmp_ret[2]
