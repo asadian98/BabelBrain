@@ -302,6 +302,8 @@ class BabelBasePhaseArray(BabelBaseTx):
                 SelP='p_amp'
             
             if self._MainApp.Config['bInUseWithBrainsight']:
+                # Include device suffix (REMOPD: steering/rot) so BSight is not given
+                # an unsuffixed NIfTI from a previous run. Empty string for other Tx.
                 extrasuffix=self.GetExtraSuffixAcFields()
                 if Skull['bDoRefocusing']:
                     #we update the name to be loaded in BSight
@@ -481,6 +483,9 @@ class BabelBasePhaseArray(BabelBaseTx):
             static_ax1.set_ylabel('Z mm')
             static_ax1.invert_yaxis()
             self._marker1,=static_ax1.plot(0,self._DistanceToTarget,'+k',markersize=18)
+            # Magenta × = actual target in domain XY and axial Z; no-op unless REMOPD fills RAS.
+            self._marker_actual1,=static_ax1.plot([], [], 'x', color='#ff40ff',
+                                                  markersize=12, markeredgewidth=1.8)
                 
             self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
             h=plt.colorbar(self._imContourf1,cax=cax2)
@@ -496,6 +501,8 @@ class BabelBasePhaseArray(BabelBaseTx):
             static_ax2.set_ylabel('Z mm')
             static_ax2.invert_yaxis()
             self._marker2,=static_ax2.plot(0,self._DistanceToTarget,'+k',markersize=18)
+            self._marker_actual2,=static_ax2.plot([], [], 'x', color='#ff40ff',
+                                                  markersize=12, markeredgewidth=1.8)
         
         self._figAcField.set_facecolor(self._MainApp._BackgroundColorFigures)
 
@@ -504,10 +511,37 @@ class BabelBasePhaseArray(BabelBaseTx):
              mc[3] = 0.0
         self._marker1.set_markerfacecolor(mc)
         self._marker2.set_markerfacecolor(mc)
+        self._marker1.set_markeredgecolor(mc)
+        self._marker2.set_markeredgecolor(mc)
+        self.UpdateActualTargetMarkers()
 
         self.Widget.IsppaScrollBars.update_labels(SelX, SelY)
         self._bRecalculated = False
         
+    def GetActualTargetDomainMm(self):
+        return None
+
+    def UpdateActualTargetMarkers(self):
+        # Default: hide. REMOPD overrides GetActualTargetDomainMm.
+        if not hasattr(self, '_marker_actual1'):
+            return
+        pos = self.GetActualTargetDomainMm()
+        hidden = self.Widget.HideMarkscheckBox.isChecked() or pos is None
+        if pos is None:
+            self._marker_actual1.set_data([], [])
+            self._marker_actual2.set_data([], [])
+        else:
+            x_mm, y_mm, z_mm = pos
+            self._marker_actual1.set_data([x_mm], [z_mm])
+            self._marker_actual2.set_data([y_mm], [z_mm])
+        mc = [1.0, 0.25, 1.0, 0.0 if hidden else 1.0]
+        for m in (self._marker_actual1, self._marker_actual2):
+            m.set_visible(not hidden)
+            m.set_markeredgecolor(mc)
+            m.set_markerfacecolor(mc)
+        if hasattr(self, '_figAcField'):
+            self._figAcField.canvas.draw_idle()
+
     @Slot()
     def UpdateAcResults(self):
         self._MainApp.SetSuccesCode()

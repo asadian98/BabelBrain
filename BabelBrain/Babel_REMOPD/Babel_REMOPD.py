@@ -24,6 +24,12 @@ from GUIComponents.ScrollBars import ScrollBars as WidgetScrollBars
 from CalculateFieldProcess import CalculateFieldProcess
 
 from _BabelBasePhasedArray import BabelBasePhaseArray
+from ConvMatTransform import (
+    ReadTrajectoryBrainsight,
+    read_itk_affine_transform,
+    itk_to_BSight,
+)
+from TranscranialModeling.BabelIntegrationREMOPD import DeviceFrameSteering
 
 _IS_MAC = platform.system() == 'Darwin'
 def resource_path():  # needed for bundling
@@ -37,6 +43,42 @@ def resource_path():  # needed for bundling
         bundle_dir = Path(__file__).parent
 
     return bundle_dir
+
+def format_ras_mm(xyz):
+    return '%0.3f, %0.3f, %0.3f' % (float(xyz[0]), float(xyz[1]), float(xyz[2]))
+
+def parse_ras_mm(text):
+    parts = text.replace(',', ' ').replace(';', ' ').split()
+    if len(parts) != 3:
+        raise ValueError('Enter three numbers: X, Y, Z in millimetres (NIfTI RAS).')
+    return np.array([float(parts[0]), float(parts[1]), float(parts[2])], dtype=float)
+
+def trajectory_matrix_ras(config):
+    path = config.get('OrigMat4Trajectory') or config.get('Mat4Trajectory')
+    if not path or not os.path.isfile(path):
+        path = config.get('Mat4Trajectory')
+    if not path or not os.path.isfile(path):
+        raise ValueError('No trajectory file is available yet. Run Step 1 first.')
+    traj_type = str(config.get('TrajectoryType', 'brainsight')).lower()
+    if traj_type == 'slicer':
+        return itk_to_BSight(read_itk_affine_transform(path))
+    return ReadTrajectoryBrainsight(path)
+
+def gui_steering_from_targets_mm(R, virtual_ras, actual_ras):
+    '''Map actual vs virtual RAS onto GUI / simulation steering (mm).
+
+    Project (actual − virtual) onto the Brainsight tool axes (R columns).
+    X: GUI +X = tool +X. Y: GUI +Y = −tool +Y (DeviceFrameSteering).
+    Z: GUI +Z is depth from the array (normal, + = deeper). Brainsight tool +Z
+    points toward the transducer, so the along-normal term is −tool[2].
+    Returned along_beam is that already-signed delta to add to skin→virtual.
+    '''
+    delta = np.asarray(actual_ras, dtype=float) - np.asarray(virtual_ras, dtype=float)
+    tool = R[:3, :3].T @ delta
+    gui_x, gui_y = tool[0], -tool[1]
+    along_beam = -float(tool[2])
+    domain_x, domain_y = DeviceFrameSteering(gui_x, gui_y)
+    return gui_x, gui_y, along_beam, float(domain_x), float(domain_y)
 
 class REMOPD(BabelBasePhaseArray): 
     def __init__(self,parent=None,MainApp=None):
@@ -70,14 +112,77 @@ class REMOPD(BabelBasePhaseArray):
         self.Widget.LabelTissueRemoved.setVisible(False)
         self.Widget.CalculateMechAdj.clicked.connect(self.CalculateMechAdj)
         self.Widget.CalculateMechAdj.setEnabled(False)
+        # Virtual/actual RAS → X/Y/Z spinboxes; editing actual RAS refreshes the × marks.
+        self.Widget.CalcSteerFromTargetsButton.clicked.connect(self.FillSteeringFromTargets)
+        self.Widget.ActualTargetLineEdit.editingFinished.connect(self.OnActualTargetEdited)
+        self.FillVirtualTargetFromTrajectory()
         self.up_load_ui()
 
     def GetExtraSuffixAcFields(self):
+        # Must match BabelIntegrationREMOPD so Brainsight loads the steered NIfTI,
+        # not an old unsuffixed file from a previous X/Y/Z/rot.
         return "_Steer_X_%2.1f_Y_%2.1f_Z_%2.1f_Rot_%2.1f_" % (
             self.Widget.XSteeringSpinBox.value(),
             self.Widget.YSteeringSpinBox.value(),
             self.Widget.ZSteeringSpinBox.value(),
             self.Widget.ZRotationSpinBox.value())
+
+    def FillVirtualTargetFromTrajectory(self):
+        # Origin of the Brainsight/Slicer 4×4 (the planning / virtual target).
+        try:
+            R = trajectory_matrix_ras(self._MainApp.Config)
+        except (ValueError, OSError, KeyError):
+            return
+        self.Widget.VirtualTargetLineEdit.setText(format_ras_mm(R[:3, 3]))
+
+    @Slot()
+    def FillSteeringFromTargets(self):
+        try:
+            R = trajectory_matrix_ras(self._MainApp.Config)
+            virtual = parse_ras_mm(self.Widget.VirtualTargetLineEdit.text())
+            actual = parse_ras_mm(self.Widget.ActualTargetLineEdit.text())
+        except ValueError as e:
+            QMessageBox.warning(self, 'Targets', str(e))
+            return
+        gui_x, gui_y, along_beam, domain_x, domain_y = gui_steering_from_targets_mm(
+            R, virtual, actual)
+        # Z spinbox = axial depth from the array, not the RAS offset alone.
+        z_virtual = self.Widget.DistanceSkinLabel.property('UserData')
+        if z_virtual is None:
+            z_virtual = self.Widget.ZSteeringSpinBox.value()
+        gui_z = float(z_virtual) + along_beam
+        xmin = self.Config['MinimalXSteering'] * 1e3
+        xmax = self.Config['MaximalXSteering'] * 1e3
+        ymin = self.Config['MinimalYSteering'] * 1e3
+        ymax = self.Config['MaximalYSteering'] * 1e3
+        zmin = self.Config['MinimalZSteering'] * 1e3
+        zmax = self.Config['MaximalZSteering'] * 1e3
+        in_range = (
+            (xmin <= gui_x <= xmax) and (ymin <= gui_y <= ymax) and
+            (zmin <= gui_z <= zmax)
+        )
+        msg = (
+            'Offset from virtual (mm): lateral X %+0.1f, Y %+0.1f, along-normal %+0.1f.\n'
+            'Steering (mm): X %+0.1f, Y %+0.1f, Z %+0.1f  (Z = virtual depth %+0.1f + along-normal).'
+            % (domain_x, domain_y, along_beam, gui_x, gui_y, gui_z, float(z_virtual))
+        )
+        if not in_range:
+            msg += (
+                '\nOutside REMOPD range (X %+0.0f…%+0.0f, Y %+0.0f…%+0.0f, Z %.0f…%.0f mm).'
+                % (xmin, xmax, ymin, ymax, zmin, zmax)
+            )
+        self.Widget.SteerFromTargetsLabel.setText(msg)
+        if not in_range:
+            ret = QMessageBox.question(
+                self, 'Steering range',
+                msg + '\n\nApply the values to the X/Y/Z spinboxes anyway?',
+                QMessageBox.Yes | QMessageBox.No)
+            if ret != QMessageBox.Yes:
+                return
+        self.Widget.XSteeringSpinBox.setValue(np.round(gui_x, 1))
+        self.Widget.YSteeringSpinBox.setValue(np.round(gui_y, 1))
+        self.Widget.ZSteeringSpinBox.setValue(np.round(gui_z, 1))
+        self._MainApp.UpdateActualTargetMarks()
         
     @Slot()
     def UpdateDistanceFromSkin(self):
@@ -108,6 +213,42 @@ class REMOPD(BabelBasePhaseArray):
         self.Widget.DistanceSkinLabel.setText('%3.2f'%(DistanceFromSkin))
         self.Widget.DistanceSkinLabel.setProperty('UserData',DistanceFromSkin)
         self.Widget.ZSteeringSpinBox.setValue(np.round(DistanceFromSkin,1))
+        self.FillVirtualTargetFromTrajectory()
+        self._MainApp.UpdateActualTargetMarks()
+
+
+    def GetActualTargetRAS(self):
+        # Parsed actual RAS, or None if the box is empty / invalid (other Tx skip this).
+        try:
+            return parse_ras_mm(self.Widget.ActualTargetLineEdit.text())
+        except ValueError:
+            return None
+
+    def GetActualTargetDomainMm(self):
+        '''Step-2 plot mm of the actual target: domain X/Y and axial Z from the array.'''
+        try:
+            R = trajectory_matrix_ras(self._MainApp.Config)
+            virtual = parse_ras_mm(self.Widget.VirtualTargetLineEdit.text())
+            actual = parse_ras_mm(self.Widget.ActualTargetLineEdit.text())
+        except (ValueError, OSError, KeyError):
+            return None
+        gui_x, gui_y, along_beam, domain_x, domain_y = gui_steering_from_targets_mm(
+            R, virtual, actual)
+        z_virtual = self.Widget.DistanceSkinLabel.property('UserData')
+        if z_virtual is None:
+            z_virtual = getattr(self, '_DistanceToTarget', None)
+        if z_virtual is None:
+            z_virtual = self.Widget.ZSteeringSpinBox.value()
+        return float(domain_x), float(domain_y), float(z_virtual) + along_beam
+
+    def GetIntendedFocusPlotMm(self):
+        # Mechanical adj. / FLHM distance must compare the focus cloud to the
+        # actual × (aberration leftover), not the virtual + we steered away from.
+        return self.GetActualTargetDomainMm()
+
+    @Slot()
+    def OnActualTargetEdited(self):
+        self._MainApp.UpdateActualTargetMarks()
 
 
     @Slot()
@@ -213,6 +354,8 @@ class REMOPD(BabelBasePhaseArray):
          
         for k in ['XSteering','YSteering','ZSteering','ZRotation','XMechanic','YMechanic','SkinDistance']:
             Export[k]=getattr(self.Widget,k+'SpinBox').value()
+        Export['VirtualTargetRAS']=self.Widget.VirtualTargetLineEdit.text()
+        Export['ActualTargetRAS']=self.Widget.ActualTargetLineEdit.text()  # planning RAS, not a sim input
         return Export
     
     def EnableMultiPoint(self,MultiPoint):

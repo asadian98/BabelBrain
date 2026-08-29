@@ -9,9 +9,10 @@ from GUIComponents.TxPanelBase import (
     make_dspin,
     make_combo,
     make_label,
+    make_button,
     form_row,
 )
-from PySide6.QtWidgets import QCheckBox
+from PySide6.QtWidgets import QCheckBox, QLineEdit
 
 
 class REMOPDForm(TxPanelBase):
@@ -47,6 +48,33 @@ class REMOPDForm(TxPanelBase):
             "ZRotationSpinBox", minimum=-180.0, maximum=180.0,
             decimals=1, step=5.0)
         lay.addLayout(form_row("Z Rotation (degrees)", self.ZRotationSpinBox))
+
+        lay.addSpacing(6)
+
+        # Virtual = trajectory (Brainsight) target; actual = anatomical point to
+        # hit with electronic X/Y/Z. Fill button writes the spinboxes only.
+        self.VirtualTargetLineEdit = QLineEdit()
+        self.VirtualTargetLineEdit.setObjectName("VirtualTargetLineEdit")
+        self.VirtualTargetLineEdit.setPlaceholderText("X, Y, Z mm  (NIfTI RAS)")
+        self.VirtualTargetLineEdit.setToolTip(
+            "Trajectory target (virtual). Filled from the Brainsight/Slicer pose after Step 1.")
+        lay.addLayout(form_row("Virtual target", self.VirtualTargetLineEdit))
+
+        self.ActualTargetLineEdit = QLineEdit()
+        self.ActualTargetLineEdit.setObjectName("ActualTargetLineEdit")
+        self.ActualTargetLineEdit.setPlaceholderText("X, Y, Z mm  (NIfTI RAS)")
+        self.ActualTargetLineEdit.setToolTip(
+            "Anatomical target to reach with electronic steering (same NIfTI RAS as Brainsight).\n"
+            "Shown as a magenta × on Step 1, Step 2, and VTK images (yellow/black + is the virtual target).")
+        lay.addLayout(form_row("Actual target", self.ActualTargetLineEdit))
+
+        self.CalcSteerFromTargetsButton = make_button(
+            "CalcSteerFromTargetsButton", "Fill X/Y/Z steering from targets")
+        lay.addWidget(self.CalcSteerFromTargetsButton)
+
+        self.SteerFromTargetsLabel = make_label(" ", name="SteerFromTargetsLabel")
+        self.SteerFromTargetsLabel.setWordWrap(True)
+        lay.addWidget(self.SteerFromTargetsLabel)
 
         lay.addSpacing(6)
 

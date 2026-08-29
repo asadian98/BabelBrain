@@ -73,6 +73,7 @@ BG_PANEL  = "#222228"
 BG_VP     = "#0d0d0f"
 BG_LAYER  = "#28282f"
 ACCENT    = "#00c8ff"
+MARKER_ACTUAL = "#ff40ff"  # REMOPD actual target; distinct from the cyan crosshair
 COLORS    = ["#ff6b6b", "#6bffb8", "#ffda6b"]
 TEXT      = "#d4d4d8"
 TEXT_DIM  = "#71717a"
@@ -606,8 +607,15 @@ class SliceViewport(QFrame):
 
         self._cross_h = _make_line_actor(ACCENT)
         self._cross_v = _make_line_actor(ACCENT)
+        self._extra_h = _make_line_actor(MARKER_ACTUAL)
+        self._extra_v = _make_line_actor(MARKER_ACTUAL)
+        # Short magenta cross at a fixed RAS (actual target); not the movable crosshair.
+        self._extra_h.GetProperty().SetLineWidth(2.4)
+        self._extra_v.GetProperty().SetLineWidth(2.4)
         self.renderer.AddActor(self._cross_h)
         self.renderer.AddActor(self._cross_v)
+        self.renderer.AddActor(self._extra_h)
+        self.renderer.AddActor(self._extra_v)
 
         # Orientation label actors (L/R/A/P/S/I) — only shown in medical mode
         self._orient_actors: list[vtk.vtkTextActor] = []
@@ -753,11 +761,7 @@ class SliceViewport(QFrame):
         self._current_slice = mid
         self._lbl_slice.setText(f"{mid+1} / {pg.n}")
 
-        # Re-add crosshairs above image actors
-        self.renderer.RemoveActor(self._cross_h)
-        self.renderer.RemoveActor(self._cross_v)
-        self.renderer.AddActor(self._cross_h)
-        self.renderer.AddActor(self._cross_v)
+        self._raise_annotation_actors()
 
         self._init_camera(mid)
         self.vtk_widget.Initialize()
@@ -770,12 +774,8 @@ class SliceViewport(QFrame):
         actor.SetUserTransform(rec.vtk_xform)
         self._apply_volume_property(prop, rec)
 
-        # Insert before crosshairs (which are the last two actors)
-        self.renderer.RemoveActor(self._cross_h)
-        self.renderer.RemoveActor(self._cross_v)
         self.renderer.AddActor(actor)
-        self.renderer.AddActor(self._cross_h)
-        self.renderer.AddActor(self._cross_v)
+        self._raise_annotation_actors()
 
         self._layers.append((actor, prop))
         self.vtk_widget.GetRenderWindow().Render()
@@ -838,6 +838,29 @@ class SliceViewport(QFrame):
         else:
             self._cross_h.VisibilityOff()
             self._cross_v.VisibilityOff()
+        self.vtk_widget.GetRenderWindow().Render()
+
+    def _raise_annotation_actors(self) -> None:
+        for a in (self._cross_h, self._cross_v, self._extra_h, self._extra_v):
+            self.renderer.RemoveActor(a)
+            self.renderer.AddActor(a)
+
+    def set_extra_marker(self, world_pt: np.ndarray, half_len: float) -> None:
+        if self._pg is None:
+            return
+        _set_line(self._extra_h, world_pt - self._pg.right * half_len, world_pt + self._pg.right * half_len)
+        _set_line(self._extra_v, world_pt - self._pg.up * half_len, world_pt + self._pg.up * half_len)
+        self._extra_h.VisibilityOn()
+        self._extra_v.VisibilityOn()
+        self.vtk_widget.GetRenderWindow().Render()
+
+    def set_extra_marker_visible(self, visible: bool) -> None:
+        if visible:
+            self._extra_h.VisibilityOn()
+            self._extra_v.VisibilityOn()
+        else:
+            self._extra_h.VisibilityOff()
+            self._extra_v.VisibilityOff()
         self.vtk_widget.GetRenderWindow().Render()
         
 
@@ -1587,6 +1610,7 @@ class NiftiViewer(QWidget):
         self._half_len:      float = 100.
         self._selected_vol:  int = 0
         self._crosshair_visible: bool = True
+        self._extra_ras:     np.ndarray | None = None
         self._build_ui()
 
     def _build_ui(self):
@@ -1699,6 +1723,25 @@ class NiftiViewer(QWidget):
         self._crosshair_visible = visible
         for vp in self._vps:
             vp.set_crosshair_visible(visible)
+
+    def set_extra_ras_marker(self, x: float, y: float, z: float) -> None:
+        """Fixed magenta cross at RAS mm. Used for the REMOPD actual target."""
+        self._extra_ras = np.array([x, y, z], dtype=float)
+        self._update_extra_marker()
+
+    def clear_extra_ras_marker(self) -> None:
+        self._extra_ras = None
+        for vp in self._vps:
+            vp.set_extra_marker_visible(False)
+
+    def _update_extra_marker(self) -> None:
+        if self._extra_ras is None or not self._geoms:
+            for vp in self._vps:
+                vp.set_extra_marker_visible(False)
+            return
+        half = float(min(10.0, max(4.0, self._half_len * 0.06)))
+        for vp in self._vps:
+            vp.set_extra_marker(self._extra_ras, half)
 
     def reset_view(self) -> None:
         """
@@ -2147,6 +2190,7 @@ class NiftiViewer(QWidget):
         if self._crosshair_visible:
             for vp in self._vps:
                 vp.set_crosshair(world_pt, self._half_len)
+        self._update_extra_marker()
         self.ras_changed.emit(float(world_pt[0]), float(world_pt[1]), float(world_pt[2]))
 
     def _on_slice_changed(self, _plane_idx: int, _slice_idx: int) -> None:

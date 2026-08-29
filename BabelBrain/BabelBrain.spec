@@ -197,7 +197,8 @@ if "Darwin" in platform.system():  # For MAC systems
     binaries += tmp_ret[1]
     datas += tmp_ret[0]
 
-    # Metal compute backend used by GPU listing and Step 1 kernels
+    # metalcomputebabel: Mac Metal backend for GPU listing and Step 1 kernels.
+    # Without this collect, the bundled app could not see the GPU.
     tmp_ret = collect_all("metalcomputebabel")
     binaries += tmp_ret[1]
     datas += tmp_ret[0]

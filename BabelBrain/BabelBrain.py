@@ -1102,6 +1102,7 @@ class BabelBrain(QWidget):
         self._imT1W=[]
         self._imCtMasks=[]
         self._markers=[]
+        self._markers_actual=[]  # magenta × for REMOPD actual RAS; empty for other Tx
 
         self._figMasks = Figure(figsize=(18, 6))
         if not hasattr(self,'_layout'):
@@ -1149,6 +1150,19 @@ class BabelBrain(QWidget):
                 self._imCtMasks.append(static_ax.imshow(Zm,cmap=cmap,vmin=0,vmax=1,extent=extent,aspect='equal'))
             self._imT1W.append(static_ax.imshow(T1WMap,extent=extent,aspect='equal')) 
             self._markers.append(static_ax.plot(vec1[c1],vec2[c2],'+y',markersize=14)[0])
+        # Project actual RAS onto the three Step-1 planes (same grid as the yellow +).
+        actual_xyz = self._actual_target_step1_xyz()
+        self._markers_actual=[]
+        if actual_xyz is not None:
+            actual_pts = [
+                (actual_xyz[0], actual_xyz[2]),
+                (actual_xyz[1], actual_xyz[2]),
+                (actual_xyz[0], actual_xyz[1]),
+            ]
+            for static_ax, (px, py) in zip(axes, actual_pts):
+                self._markers_actual.append(
+                    static_ax.plot(px, py, 'x', color='#ff40ff',
+                                   markersize=12, markeredgewidth=1.8)[0])
         im = self._imMasks[-1]
         if self.Config['bUseCT']:
             if self._bSegmentedBrain :
@@ -1194,6 +1208,12 @@ class BabelBrain(QWidget):
             #we use manual color asignation 
                 
         patches = [ mpatches.Patch(color=colors[i], label=legends[i] ) for i in range(len(values)) ]
+        from matplotlib.lines import Line2D
+        patches.append(Line2D([0], [0], marker='+', color='#c0c000', linestyle='None',
+                              markersize=10, label='virtual'))  # trajectory / label 5
+        if self._markers_actual:
+            patches.append(Line2D([0], [0], marker='x', color='#ff40ff', linestyle='None',
+                                  markersize=9, label='actual'))  # steered anatomical target
         leg=axes[-1].legend(handles=patches, bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0. )
         self._figMasks.set_facecolor(self._BackgroundColorFigures)
         leg.get_frame().set_facecolor(self._BackgroundColorFigures)
@@ -1278,6 +1298,8 @@ class BabelBrain(QWidget):
             self._vtk_visualization.viewer._layer_panel._rows[-1]._on_cutoff_changed()
             self._vtk_visualization.viewer._layer_panel._rows[-1]._cmap_combo.setCurrentIndex(4)
 
+        self.UpdateActualTargetMarks()  # magenta × at actual RAS if the box is filled
+
         if hasattr(self,'_NiftiSkull'):
             self._UpdateVTKAcResults()
         if hasattr(self,'_NiftiTemperature'):
@@ -1355,7 +1377,74 @@ class BabelBrain(QWidget):
         for m in self._markers:
             m.set_markerfacecolor(mc)
             m.set_markeredgecolor(mc)
+        mc_act=[1.0, 0.25, 1.0, mc[3]]  # hide magenta × with the same checkbox as the yellow +
+        for m in getattr(self,'_markers_actual',[]):
+            m.set_markerfacecolor(mc_act)
+            m.set_markeredgecolor(mc_act)
         self._figMasks.canvas.draw_idle()
+
+    def _actual_target_ras(self):
+        # REMOPD-only; other transducers have no GetActualTargetRAS.
+        ac = getattr(self, 'AcSim', None)
+        getter = getattr(ac, 'GetActualTargetRAS', None) if ac is not None else None
+        if getter is None:
+            return None
+        return getter()
+
+    def _actual_target_step1_xyz(self):
+        # RAS → Step-1 plot mm using the mask affine and the same Z flip as the mask views.
+        ras = self._actual_target_ras()
+        if ras is None or not hasattr(self, '_MaskNib') or not hasattr(self,'_T1WNib'):
+            return None
+        ijk = (np.linalg.inv(self._MaskNib.affine) @ np.append(np.asarray(ras, dtype=float), 1.0))[:3]
+        ijk[2] = (self._MaskNib.shape[2] - 1) - ijk[2]
+        vox = np.array(self._T1WNib.header.get_zooms()[:3], dtype=float)
+        shape = np.array(self._T1WNib.shape[:3], dtype=float)
+        return ijk * vox - (shape - 1) * vox / 2.0
+
+    def UpdateActualTargetMarks(self):
+        # Keep Step-1, VTK, and Step-2 × in sync when actual RAS is typed or filled.
+        if hasattr(self,'_figMasks') and hasattr(self,'_axes'):
+            actual_xyz = self._actual_target_step1_xyz()
+            hidden = self.Widget.HideMarkscheckBox.isChecked()
+            coords = None if actual_xyz is None else [
+                (actual_xyz[0], actual_xyz[2]),
+                (actual_xyz[1], actual_xyz[2]),
+                (actual_xyz[0], actual_xyz[1]),
+            ]
+            markers = getattr(self,'_markers_actual',[])
+            if coords is None:
+                for m in markers:
+                    m.set_data([], [])
+                    m.set_visible(False)
+            else:
+                if len(markers) != 3:
+                    self._markers_actual = []
+                    for ax, (px, py) in zip(self._axes, coords):
+                        self._markers_actual.append(
+                            ax.plot(px, py, 'x', color='#ff40ff',
+                                    markersize=12, markeredgewidth=1.8)[0])
+                else:
+                    for m, (px, py) in zip(markers, coords):
+                        m.set_data([px], [py])
+                        m.set_visible(not hidden)
+                mc_act = [1.0, 0.25, 1.0, 0.0 if hidden else 1.0]
+                for m in self._markers_actual:
+                    m.set_visible(not hidden)
+                    m.set_markeredgecolor(mc_act)
+                    m.set_markerfacecolor(mc_act)
+            self._figMasks.canvas.draw_idle()
+        if hasattr(self,'_vtk_visualization'):
+            ras = self._actual_target_ras()
+            if ras is None:
+                self._vtk_visualization.viewer.clear_extra_ras_marker()
+            else:
+                self._vtk_visualization.viewer.set_extra_ras_marker(
+                    float(ras[0]), float(ras[1]), float(ras[2]))
+        ac = getattr(self, 'AcSim', None)
+        updater = getattr(ac, 'UpdateActualTargetMarkers', None) if ac is not None else None
+        if updater is not None:
+            updater()
     
     @Slot()
     def UpdateTransparency(self):

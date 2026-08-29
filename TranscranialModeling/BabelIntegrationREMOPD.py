@@ -87,11 +87,12 @@ def GenerateSingleElem(FREQ=300e3,PPW=12.0):
 
 def DeviceFrameSteering(XSteering, YSteering):
     '''
-    Map GUI steering into REMOPD device axes.
+    Map GUI electronic steering into REMOPD device / simulation-domain axes.
 
-    BabelBrain +X matches REMOPD/Brainsight tool +X.
-    BabelBrain +Y is opposite REMOPD +Y, so only Y is negated.
-    Returned values are the electronic-focus offsets in the simulation domain.
+    Changed on remopd/virtual-target: hydrophone checks showed BabelBrain GUI +X
+    matches the transducer/Brainsight tool +X, but GUI +Y is opposite device +Y.
+    Only Y is negated. Mechanical X/Y are not flipped. Z is not mapped here;
+    GUI +Z is already depth from the array (normal to the face, + = deeper).
     '''
     return XSteering, -YSteering
 
@@ -103,7 +104,8 @@ def GenerateREMOPDTx(subsetLimit=128,RotationZ=0.0,Frequency=300e3):
 
     transLoc = computeREMOPDGeometry()
 
-    #RotationZ is specified in degrees, consistent with the GUI and the other phased arrays
+    # Changed: GUI RotationZ is in degrees (same as other phased arrays) but this
+    # matrix used the value as radians, so 45° barely rotated the array. Convert first.
     RotationZRad=np.deg2rad(RotationZ)
     rotateMatrixZ = np.array([[-np.cos(RotationZRad),np.sin(RotationZRad),0],
                               [-np.sin(RotationZRad),-np.cos(RotationZRad),0],[0,0,1]])
@@ -179,6 +181,8 @@ class RUN_SIM(RUN_SIM_BASE):
         self._YSteering=YSteering
         self._ZSteering=ZSteering
         self._TxSet=TxSet
+        # Unique H5/NIfTI names per steering so a new X/Y/Z/rot does not reload
+        # an old unsuffixed file. ExtraAdjust* enlarges the FOV for the steered focus.
         extrasuffix=kargs.pop('extrasuffix','')
         extrasuffix += "_Steer_X_%2.1f_Y_%2.1f_Z_%2.1f_Rot_%2.1f_" % (
             XSteering*1e3, YSteering*1e3, ZSteering*1e3, RotationZ)
@@ -347,6 +351,8 @@ class SimulationConditions(SimulationConditionsBASE):
             u0=np.zeros((1),np.complex64)
             u0[0]=1+0j
             center=np.zeros((1,3),np.float32)
+            # XY through DeviceFrameSteering (Y sign). Z is Cartesian depth from
+            # the array face along the normal, not path length along the steered ray.
             steerX, steerY = DeviceFrameSteering(self._XSteering, self._YSteering)
             center[0,0]=self._XDim[self._FocalSpotLocation[0]]+self._TxMechanicalAdjustmentX+steerX
             center[0,1]=self._YDim[self._FocalSpotLocation[1]]+self._TxMechanicalAdjustmentY+steerY

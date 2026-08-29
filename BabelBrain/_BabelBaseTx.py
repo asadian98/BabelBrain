@@ -369,6 +369,14 @@ class BabelBaseTx(QWidget):
         #MuliPoint is a list of dictionaries with entries ['X':value,'Y':value,'Z':value], each indicating steering conditions for each point
         pass #to be defined by those Tx capable of multi-point
     
+    def GetIntendedFocusPlotMm(self):
+        '''(x, y, z) mm of the intended focus in Step-2 plot axes, or None to use the virtual TargetLocation.
+
+        REMOPD returns the actual target so mechanical adj. compensates skull
+        aberration relative to the steered focus, not a slide toward that point.
+        '''
+        return None
+
     def CalculateDistancesTarget(self):
         # Get voxel size
         dx=  np.mean(np.diff(self._Skull['x_vec']))
@@ -394,9 +402,17 @@ class BabelBaseTx(QWidget):
         z_o=np.unique(self._ZZX)
         #we get the centroid in the displayed axes convention
         centroid=stats['centroid']+np.array([x_o.min(),y_o.min(),z_o.min()])
-        X_dist = centroid[0]-x_o[self._Skull['TargetLocation'][0]]
-        Y_dist = centroid[1]-y_o[self._Skull['TargetLocation'][1]]
-        Z_dist = centroid[2]-z_o[self._Skull['TargetLocation'][2]]
+        # Prefer actual/steered focus when the Tx provides it; else mask label 5.
+        intended = self.GetIntendedFocusPlotMm()
+        if intended is None:
+            X_ref = x_o[self._Skull['TargetLocation'][0]]
+            Y_ref = y_o[self._Skull['TargetLocation'][1]]
+            Z_ref = z_o[self._Skull['TargetLocation'][2]]
+        else:
+            X_ref, Y_ref, Z_ref = intended
+        X_dist = centroid[0]-X_ref
+        Y_dist = centroid[1]-Y_ref
+        Z_dist = centroid[2]-Z_ref
         Total_Distance= np.round(np.sqrt(X_dist**2+Y_dist**2+Z_dist**2),1)
         X_dist=np.round(X_dist,1)
         Y_dist=np.round(Y_dist,1)
@@ -408,9 +424,10 @@ class BabelBaseTx(QWidget):
         #this calculates the required mechanical correction to center acoustic beam
         #to the target
         Total_Distance,X_correction,Y_correction,Z_correction = self.CalculateDistancesTarget()
+        ref = 'actual target' if self.GetIntendedFocusPlotMm() is not None else 'target'
         ret = QMessageBox.question(self,'', "The focal spot's center of mass (-6dB) "+
-                                   'is [%3.1f,%3.1f]' % (X_correction,Y_correction) + " mm-off in [X,Y] relative to the target.\n"+
-                                    "Do you want to apply a mechanical correction?",
+                                   'is [%3.1f,%3.1f]' % (X_correction,Y_correction) + " mm-off in [X,Y] relative to the %s.\n" % ref +
+                                    "Do you want to apply a mechanical correction for this leftover (aberration) shift?",
                 QMessageBox.Yes | QMessageBox.No)
         if ret == QMessageBox.Yes:
             curX=self.Widget.XMechanicSpinBox.value()
