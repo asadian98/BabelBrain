@@ -40,6 +40,19 @@ def get_default_step(gpu_device, GPUBackend):
             for device in platform.get_devices():
                 if device_name in device.name:
                     selected_device = device
+                    break
+            if selected_device is not None:
+                break
+
+        if selected_device is None:
+            # Metal/CUDA device names do not always match an OpenCL device (common on
+            # older Intel Mac iGPUs). Fall back to the low-VRAM step instead of crashing.
+            logger.warning(
+                "Could not match GPU device %r to an OpenCL device for VRAM query; "
+                "using low-VRAM default step.",
+                device_name,
+            )
+            return 5000000
 
         total_VRAM = selected_device.get_info(pocl.device_info.GLOBAL_MEM_SIZE)
 
