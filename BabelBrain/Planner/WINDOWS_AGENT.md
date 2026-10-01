@@ -22,7 +22,9 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Charm files are in BabelBrain/Planner/fixtures/m2m_sample/, the public SimNIBS ernie subject. charm_log.html is the name the dialog checks. final_tissues.nii.gz is the volume the domain step reads. Open that folder. m2m_hamid is only T1 and skin, so the Charm check will keep rejecting it. Pull and rerun the check, GUI save, and Brainsight launch. No simulation unless the files load.
+No DICOM and no extra NIfTI. m2m_hamid stays T1.nii.gz and skin.stl. The other Charm files are not on this machine. The dialog only needs a filename containing charm. The domain step needs final_tissues.nii.gz, already in m2m_sample from public ernie. Open that folder.
+
+Tokens: five short Reply lines. No logs, file lists, or history. Automations: if the latest commit is yours, stop. Replace Reply, push once, then wait.
 
 ### Reply
 
