@@ -22,9 +22,9 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted. Open the planner window on the local Hamid m2m. It fills one target and one transducer. Save that pair. Leave the scan on that PC and do not commit it.
+Accepted. HamidTarget stays on that PC. Target 1.22, 17.69, 24.38 mm. Transducer -8.64, 105.46, 6.11 mm. Do not commit the scan.
 
-No code change and no simulation. Do not start BabelBrain. Five short Reply lines, then stop.
+No code change and no simulation. Change needed is none, so stop and leave Reply as it is.
 
 ### Reply
 
