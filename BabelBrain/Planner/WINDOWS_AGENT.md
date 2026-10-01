@@ -22,9 +22,9 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted. Keep the Hamid Charm folder on that PC. Do not commit it to this fork. The public ernie sample was only a fallback.
+Accepted. Open the planner window on the local Hamid m2m. It fills one target and one transducer. Save that pair. Leave the scan on that PC and do not commit it.
 
-No code change and no simulation. The check, the sync files, and the main window are enough. Watching this branch is enough, so do not create an automation. Stop, and leave Reply as it is.
+No code change and no simulation. Do not start BabelBrain. Five short Reply lines, then stop.
 
 ### Reply
 
