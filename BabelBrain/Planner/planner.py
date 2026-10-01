@@ -658,6 +658,7 @@ class PlannerWindow:
         if self.data is None:
             return
         self.selection = self._world_to_ijk(pos)
+        self._reseat_on_scalp()
         self._draw()
         self.status.setText("Point selected. Save it if this should be the target.")
 
@@ -731,13 +732,46 @@ class PlannerWindow:
         return ijk_to_world(self.affine, item["ijk"])
 
     def _angles_moved(self):
-        self.ap_deg = self.ap.value() / 10.0
-        self.lat_deg = self.lat.value() / 10.0
-        self.twist_deg = self.twist.value() / 10.0
+        ap = self.ap.value() / 10.0
+        lat = self.lat.value() / 10.0
+        twist = self.twist.value() / 10.0
+        aim = abs(ap - self.ap_deg) > 1e-6 or abs(lat - self.lat_deg) > 1e-6
+        self.ap_deg = ap
+        self.lat_deg = lat
+        self.twist_deg = twist
         self.ap_read[1].setText(f"{self.ap_deg:.1f}")
         self.lat_read[1].setText(f"{self.lat_deg:.1f}")
         self.twist_read[1].setText(f"{self.twist_deg:.1f}")
+        if aim:
+            self._reseat_on_scalp()
+        self._remember_pose()
         self._draw()
+
+    def _reseat_on_scalp(self):
+        """Keep the transducer on the scalp. AP and Lat change the direction, not a fixed length."""
+        if self.selection is None or self.affine is None:
+            return False
+        origin = ijk_to_world(self.affine, self.selection)
+        direction = self._direction(self.ap_deg, self.lat_deg)
+        surface = self.skin if self.skin is not None else self.bone
+        hit = _outer_hit(surface, origin, direction) if surface is not None else None
+        if hit is None:
+            return False
+        self.offset_mm = float(np.linalg.norm(np.asarray(hit) - origin))
+        self._set_offset_slider(self.offset_mm)
+        return True
+
+    def _remember_pose(self):
+        """Store the beam on the current target. The target point itself stays put."""
+        item = self._current()
+        if item is None or self.selection is None:
+            return
+        if tuple(int(v) for v in item["ijk"]) != tuple(int(v) for v in self.selection):
+            return
+        item["ap"] = self.ap_deg
+        item["lat"] = self.lat_deg
+        item["twist"] = self.twist_deg
+        item["distance"] = self.offset_mm
 
     def _set_angles(self, ap, lat, twist):
         self.ap_deg = float(ap)
@@ -784,20 +818,13 @@ class PlannerWindow:
         self.status.setText("Saved this point as the target. The 2D click is still only a selection.")
 
     def _bring_to_scalp(self):
-        if self.selection is None or self.affine is None:
-            return
-        origin = ijk_to_world(self.affine, self.selection)
-        direction = self._direction(self.ap_deg, self.lat_deg)
-        surface = self.skin if self.skin is not None else self.bone
-        hit = _outer_hit(surface, origin, direction) if surface is not None else None
-        if hit is None:
+        if not self._reseat_on_scalp():
             self.status.setText("That direction does not meet the scalp.")
             self._draw()
             return
-        self.offset_mm = float(np.linalg.norm(np.asarray(hit) - origin))
-        self._set_offset_slider(self.offset_mm)
+        self._remember_pose()
         self._draw()
-        self.status.setText("Transducer is on the scalp, offset from the selected point.")
+        self.status.setText("Transducer is on the scalp. The saved target stays where it was.")
 
     def _show_offset(self):
         if self.selection is None or self.affine is None:
