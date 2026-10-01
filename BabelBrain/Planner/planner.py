@@ -269,8 +269,8 @@ def slice_mesh(image, origin, du, dv):
     """World-space slice. An ImageData can stay edge-on when its direction is ignored."""
     import pyvista as pv
 
-    step_r = max(1, int(np.ceil(image.shape[0] / 220)))
-    step_c = max(1, int(np.ceil(image.shape[1] / 220)))
+    step_r = max(1, int(np.ceil(image.shape[0] / 512)))
+    step_c = max(1, int(np.ceil(image.shape[1] / 512)))
     img = np.ascontiguousarray(image[::step_r, ::step_c])
     nr, nc = img.shape
     rows = np.arange(nr, dtype=float) * step_r
@@ -769,15 +769,12 @@ class PlannerWindow:
         ap = self.ap.value() / 10.0
         lat = self.lat.value() / 10.0
         twist = self.twist.value() / 10.0
-        aim = abs(ap - self.ap_deg) > 1e-6 or abs(lat - self.lat_deg) > 1e-6
         self.ap_deg = ap
         self.lat_deg = lat
         self.twist_deg = twist
         self.ap_read[1].setText(f"{self.ap_deg:.1f}")
         self.lat_read[1].setText(f"{self.lat_deg:.1f}")
         self.twist_read[1].setText(f"{self.twist_deg:.1f}")
-        if aim:
-            self._reseat_on_scalp()
         self._remember_pose()
         self._draw()
 
@@ -803,7 +800,7 @@ class PlannerWindow:
                 slider.setValue(ticks)
 
     def _reseat_on_scalp(self):
-        """Keep the transducer on the scalp. AP and Lat change the direction, not a fixed length."""
+        """Move the transducer out to the scalp along the current direction. Sliders do not call this."""
         if self.selection is None or self.affine is None:
             return False
         origin = ijk_to_world(self.affine, self.selection)
@@ -956,9 +953,12 @@ class PlannerWindow:
 
     def _oblique_mesh(self, origin, du, dv):
         import pyvista as pv
+        from scipy.ndimage import map_coordinates
 
-        count = 180
+        spacing = float(min(np.linalg.norm(self.affine[:3, axis]) for axis in range(3)))
+        spacing = max(spacing, 0.5)
         span = 220.0
+        count = int(np.clip(round(span / spacing) + 1, 32, 360))
         coords = np.linspace(-span / 2.0, span / 2.0, count)
         uu, vv = np.meshgrid(coords, coords, indexing="xy")
         horizontal = np.asarray(du, dtype=float)
@@ -969,18 +969,14 @@ class PlannerWindow:
         inv = np.linalg.inv(self.affine)
         hom = np.concatenate([world, np.ones(uu.shape + (1,))], axis=-1)
         ijk = hom @ inv.T
-        shape = self.data.shape
-        ii = np.rint(ijk[..., 0])
-        jj = np.rint(ijk[..., 1])
-        kk = np.rint(ijk[..., 2])
-        valid = (
-            (ii >= 0) & (jj >= 0) & (kk >= 0)
-            & (ii < shape[0]) & (jj < shape[1]) & (kk < shape[2])
-        )
-        ii = np.clip(ii, 0, shape[0] - 1).astype(np.int32)
-        jj = np.clip(jj, 0, shape[1] - 1).astype(np.int32)
-        kk = np.clip(kk, 0, shape[2] - 1).astype(np.int32)
-        values = np.where(valid, self.data[ii, jj, kk], 0).astype(np.float32)
+        values = map_coordinates(
+            self.data,
+            [ijk[..., 0], ijk[..., 1], ijk[..., 2]],
+            order=1,
+            mode="constant",
+            cval=0.0,
+            prefilter=False,
+        ).astype(np.float32)
         grid = pv.StructuredGrid()
         grid.points = np.ascontiguousarray(world.reshape(-1, 3))
         grid.dimensions = (count, count, 1)
