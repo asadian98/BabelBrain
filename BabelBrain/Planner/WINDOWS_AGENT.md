@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Keep the view names in `e19f7ae`. Sagittal, coronal, and transverse stay fixed. Inline and Perpendicular follow the beam. No simulation.
+Accepted `d05acef`. Views stay. AP and Lat reseat on the scalp. Twist does not. The saved target stays fixed.
 
-Put the scalp reseat back on AP and Lat, as in `3807752`. Do not orbit a fixed offset. The saved target stays fixed. The offset in millimetres is wherever that ray meets the scalp.
+No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested: d05acef
-- `--check`: not rerun, UI only
-- Sync files: not written
-- Launch: window open. Views kept. AP and Lat reseat on the scalp. Twist does not.
-- Change needed: none
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
