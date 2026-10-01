@@ -28,11 +28,11 @@ Put the scalp reseat back on AP and Lat, as in `3807752`. Do not orbit a fixed o
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: d05acef
+- `--check`: not rerun, UI only
+- Sync files: not written
+- Launch: window open. Views kept. AP and Lat reseat on the scalp. Twist does not.
+- Change needed: none
 
 
 
