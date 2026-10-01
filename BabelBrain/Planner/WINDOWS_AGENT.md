@@ -32,9 +32,9 @@ Replace Reply when that window works.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 3639438
+- `--check`: not rerun. No simulation.
+- Sync files: unchanged. The Hamid scan stays on this PC.
+- Launch: each window can show axial, sagittal, coronal, or scalp. Sagittal was edge-on. A click moves the crosshair and the offset is shown in mm. Buttons set that point as the target or the trajectory. Optimize entry uses bone.stl, the outer skull, so it does not land on the ear.
+- Change needed: commit screenshots of the Brainsight planning screen to BabelBrain/Planner/brainsight_reference/. Include the target list, MRI panes, AP Lat Twist, and the crosshair numbers. No clinical scan.
 
