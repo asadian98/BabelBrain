@@ -150,6 +150,27 @@ def ijk_to_world(affine, ijk) -> np.ndarray:
     return (affine @ vec)[:3]
 
 
+def _carry_horizontal(previous, z_axis) -> np.ndarray:
+    """Keep the inline picture rolling. A fresh world axis flips the slice near 90 degrees."""
+    z_axis = np.asarray(z_axis, dtype=float)
+    z_axis = z_axis / max(float(np.linalg.norm(z_axis)), 1e-8)
+    prev = np.array([1.0, 0.0, 0.0]) if previous is None else np.asarray(previous, dtype=float)
+    horizontal = prev - z_axis * float(np.dot(prev, z_axis))
+    if float(np.linalg.norm(horizontal)) < 1e-6:
+        for candidate in (
+            np.array([0.0, 1.0, 0.0]),
+            np.array([0.0, 0.0, 1.0]),
+            np.array([1.0, 0.0, 0.0]),
+        ):
+            horizontal = candidate - z_axis * float(np.dot(candidate, z_axis))
+            if float(np.linalg.norm(horizontal)) > 1e-6:
+                break
+    horizontal = horizontal / max(float(np.linalg.norm(horizontal)), 1e-8)
+    if float(np.dot(horizontal, prev)) < 0.0:
+        horizontal = -horizontal
+    return horizontal
+
+
 def _rotate(vector, axis, degrees) -> np.ndarray:
     axis = np.asarray(axis, dtype=float)
     axis = axis / np.linalg.norm(axis)
@@ -363,6 +384,7 @@ class PlannerWindow:
         self.ap_deg = 0.0
         self.lat_deg = 0.0
         self.twist_deg = 0.0
+        self._frame_h = None
         self.offset_mm = 0.0
         self.clim = (0.0, 1.0)
         self._suspend = False
@@ -510,7 +532,7 @@ class PlannerWindow:
         self.widget.activateWindow()
 
     def _vslider(self, title, note):
-        from PySide6.QtWidgets import QLabel, QSlider
+        from PySide6.QtWidgets import QLabel, QLineEdit, QSlider
 
         slider = QSlider(self._Qt.Orientation.Vertical)
         slider.setRange(-1800, 1800)
@@ -518,8 +540,10 @@ class PlannerWindow:
         slider.setMinimumHeight(160)
         name = QLabel(title)
         name.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
-        value = QLabel("0.0")
+        value = QLineEdit("0.0")
         value.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
+        value.setMaximumWidth(72)
+        value.editingFinished.connect(self._angle_edited)
         plane = QLabel(note)
         plane.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
         return slider, (name, value, plane)
@@ -618,6 +642,7 @@ class PlannerWindow:
         self.coord_label.setText(coord)
         if bone is None:
             self.entry_use.setCurrentText("Scalp")
+        self._frame_h = None
         self._set_angles(0.0, 0.0, 0.0)
         self.offset_mm = 0.0
         self._set_offset_slider(0.0)
@@ -756,6 +781,27 @@ class PlannerWindow:
         self._remember_pose()
         self._draw()
 
+    def _angle_edited(self):
+        for edit, slider in (
+            (self.ap_read[1], self.ap),
+            (self.lat_read[1], self.lat),
+            (self.twist_read[1], self.twist),
+        ):
+            if not edit.isModified():
+                continue
+            edit.setModified(False)
+            try:
+                value = float(edit.text().strip())
+            except ValueError:
+                edit.setText(f"{slider.value() / 10.0:.1f}")
+                continue
+            value = float(np.clip(value, -180.0, 180.0))
+            ticks = int(round(value * 10.0))
+            if slider.value() == ticks:
+                edit.setText(f"{value:.1f}")
+            else:
+                slider.setValue(ticks)
+
     def _reseat_on_scalp(self):
         """Keep the transducer on the scalp. AP and Lat change the direction, not a fixed length."""
         if self.selection is None or self.affine is None:
@@ -885,10 +931,8 @@ class PlannerWindow:
     def _beam_axes(self, kind):
         """Inline contains the beam. Perpendicular looks along the beam, at the transducer face."""
         z_axis = self._direction(self.ap_deg, self.lat_deg)
-        horizontal = np.array([1.0, 0.0, 0.0]) - z_axis * float(np.dot(z_axis, [1.0, 0.0, 0.0]))
-        if float(np.linalg.norm(horizontal)) < 0.25:
-            horizontal = np.array([0.0, 1.0, 0.0]) - z_axis * float(np.dot(z_axis, [0.0, 1.0, 0.0]))
-        horizontal = horizontal / max(float(np.linalg.norm(horizontal)), 1e-8)
+        horizontal = _carry_horizontal(self._frame_h, z_axis)
+        self._frame_h = horizontal
         horizontal = _rotate(horizontal, z_axis, self.twist_deg)
         if kind == "inline90":
             horizontal = np.cross(z_axis, horizontal)
