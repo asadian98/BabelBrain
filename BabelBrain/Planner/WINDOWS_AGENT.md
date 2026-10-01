@@ -28,10 +28,10 @@ No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested: ee98a1b
+- Commit tested: c10c762
 - `--check`: not rerun, UI only
 - Sync files: not written
-- Launch: window open. Lat rolls the inline image without a plane jump. AP, Lat, and Twist accept typed degrees.
+- Launch: window open. Angle sliders keep the current offset. Only Bring to scalp meets the skin. Inline slices use the voxel spacing.
 - Change needed: none
 
 
