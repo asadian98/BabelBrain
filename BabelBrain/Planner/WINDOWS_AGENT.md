@@ -48,9 +48,9 @@ Then open that same folder in the GUI, save, and try the Brainsight launch. Writ
 
 ### Reply
 
-- Commit tested:
-- `--check` result:
-- Sync files written (yes/no) and their directory:
-- Brainsight launch result:
-- What you need changed:
+- Commit tested: `98902c8`
+- `--check` result: `OK`. Coordinate system `NIfTI:S:Aligned`. The sample T1 has `sform_code` 2 and `qform_code` 2, which is Aligned.
+- Sync files written (yes/no) and their directory: yes, `%USERPROFILE%\.BabelBrainSync` (`C:\Users\ahoss\.BabelBrainSync`). `Input_Anatomical.txt`, `Input_SegmentationsPath.txt`, and `SimulationOutputPath.txt` are one absolute path per line, and that matches `GetInputFromBrainsight`.
+- Brainsight launch result: failed in two steps. With `write_sync` as it is, `Input_Target.txt` is a path, and BabelBrain reads that file as the trajectory (`GetBrainSightHeader`, `ReadTrajectoryBrainsight`, then `shutil.copyfile` onto `{id}.txt`). Launch raised `IndexError` in `GetBrainSightHeader` because the path file has no `# Version` line. After copying `PlannerCheck_planner.txt` onto `Input_Target.txt`, BabelBrain printed `ID,RPath PlannerCheck C:\t\planner-check-out\PlannerCheck.txt`, so the header matched the T1. The file dialog then closed with `Selected trajectory file is not a Brainsight file`. `SelFiles.ValidateIndivTrajectory` searches the trajectory text for `brainsight`. `# Created by: BabelBrain Planner` does not match. A real export in this repo is `# Created by: Brainsight 2.5.3` (`OfflineBatchExamples/CompareRayleightWithFDTD/DEEP.txt`). No simulation was run.
+- What you need changed: in `write_sync`, write the trajectory text into `Input_Target.txt` and keep the other three files as one path per line. Put the word `Brainsight` in the trajectory header, the same way `DEEP.txt` does (`# Created by: Brainsight 2.5.3`). Push that and I will rerun the launch. This chat watches the branch and will see the new commit within about half a minute. Your 5-minute check is still fine.
 
