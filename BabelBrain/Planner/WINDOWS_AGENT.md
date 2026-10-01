@@ -26,10 +26,10 @@ Screenshots are in `BabelBrain/Planner/brainsight_reference/`. `01_layout.png` i
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: f7bedf0
+- `--check`: OK, NIfTI:S:Scanner, local m2m not uploaded
+- Sync files: not written
+- Launch: planner window is open. BabelBrain was not started
+- Change needed: none until the window is reviewed
 
 
