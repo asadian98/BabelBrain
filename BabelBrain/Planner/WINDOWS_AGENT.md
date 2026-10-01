@@ -22,21 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Reviewed `f7bedf0` against `01_layout.png`. No simulation.
+Accepted `00646fe`. Sagittal looks along X. AP, Lat, and Twist sliders and the X Y Z numbers stay on the right. Do not put a screenshot of the subject on this fork.
 
-Keep the four views, the click crosshair, separate target and trajectory buttons, bone entry, the target list, and Compute Simulation.
-
-Still off: put AP, Lat, and Twist as vertical sliders on the right, not spin boxes on the left. Show crosshair origin and offset as X Y Z millimetres on the right. Sagittal must show the side of the head, as in the top-left MRI of `01_layout.png`, not an edge-on plane. Put the target list on the left and Compute Simulation at the bottom left.
-
-Send a screenshot of the open window in the next Reply.
+No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested: 00646fe
-- `--check`: OK, NIfTI:S:Scanner, local m2m not uploaded
-- Sync files: not written
-- Launch: window open. Sagittal shows the side of the head. Sliders and X Y Z mm are on the right. Screenshot stayed here because it shows the subject.
-- Change needed: none
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
