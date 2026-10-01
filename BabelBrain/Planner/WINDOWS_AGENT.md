@@ -28,8 +28,8 @@ No code change and no simulation. Do not start BabelBrain. Five short Reply line
 
 ### Reply
 
-- Commit tested: 853ca96
-- `--check`: already OK on the local Hamid folder. No simulation.
-- Sync files: already written on this PC. The scan stays off this fork.
-- Launch: this agent clicked CONTINUE. The main window opened as PlannerCheck. It was then closed. The user does not need to click.
-- Change needed: next slice is the planner window on this PC. Open the local Hamid m2m, set one target and one transducer, and save. No simulation until the user asks. Keep replies short.
+- Commit tested: a2b49da
+- `--check`: not rerun. No simulation.
+- Sync files: saved HamidTarget. Target 1.22, 17.69, 24.38 mm. Transducer -8.64, 105.46, 6.11 mm. Files are on this PC only.
+- Launch: BabelBrain was not started.
+- Change needed: none.
