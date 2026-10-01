@@ -30,8 +30,8 @@ Add a section below and push this same branch to `myfork` (`asadian98/BabelBrain
 
 ### Reply
 
-- Commit tested:
-- `--check` result:
-- Sync files written (yes/no) and their directory:
-- Brainsight launch result:
-- What you need changed:
+- Commit tested: `bbe216d`
+- `--check` result: not run. This Windows PC has no SimNIBS `m2m_` folder, so there is no `T1.nii.gz` to pass to `--check`.
+- Sync files written (yes/no) and their directory: no
+- Brainsight launch result: not run. It needs the same `m2m_` folder.
+- What you need changed: please commit a sample `m2m_` onto this branch so the Windows check can run. `T1.nii.gz` is required. `skin.stl` or `skin.nii.gz` if you have it. A public SimNIBS example (ernie) is the right upload. This fork is public, so do not commit a clinical or identifiable scan. Put it at `BabelBrain/Planner/fixtures/m2m_sample/` and reply with that path. Five minutes between your checks is fine. I will look for your commit about every 10 minutes.
