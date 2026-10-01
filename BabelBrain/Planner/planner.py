@@ -356,6 +356,10 @@ class PlannerWindow:
         self.bone = None
         self.targets = []
         self.selection = None
+        self.ap_deg = 0.0
+        self.lat_deg = 0.0
+        self.twist_deg = 0.0
+        self.offset_mm = 0.0
         self.clim = (0.0, 1.0)
         self._suspend = False
         self._sig = {}
@@ -405,19 +409,16 @@ class PlannerWindow:
         self.name.editingFinished.connect(self._rename)
         left.addWidget(self.name)
         left.addWidget(QLabel("Kind: Trajectory"))
-        for text, slot in (
-            ("Set selection as target", self._set_as_target),
-            ("Set selection as trajectory", self._set_as_trajectory),
-            ("Move Target to Crosshairs Origin", self._set_as_target),
-            ("Move Target to Crosshairs Offset", self._move_to_offset),
-        ):
-            button = QPushButton(text)
-            button.clicked.connect(slot)
-            left.addWidget(button)
+        save = QPushButton("Save selection as target")
+        save.clicked.connect(self._set_as_target)
+        left.addWidget(save)
+        scalp_btn = QPushButton("Bring transducer to scalp")
+        scalp_btn.clicked.connect(self._bring_to_scalp)
+        left.addWidget(scalp_btn)
         go = QPushButton("Compute Simulation")
         go.clicked.connect(self._compute)
         left.addWidget(go)
-        self.status = QLabel("Click a view to move the crosshair. The target stays until you set it.")
+        self.status = QLabel("Click a 2D image to choose a point. It is not a target until you save it.")
         self.status.setWordWrap(True)
         left.addWidget(self.status)
 
@@ -441,7 +442,7 @@ class PlannerWindow:
             grid.addLayout(box, row, col)
             self.views[index] = plotter
             self.modes[index] = choice
-            self._watch_clicks(plotter)
+            self._watch_clicks(plotter, index)
 
         right = QVBoxLayout()
         right_box = QWidget()
@@ -449,9 +450,9 @@ class PlannerWindow:
         right_box.setLayout(right)
         root.addWidget(right_box)
         angles = QHBoxLayout()
-        self.ap, self.ap_read = self._vslider("AP")
-        self.lat, self.lat_read = self._vslider("Lat")
-        self.twist, self.twist_read = self._vslider("Twist")
+        self.ap, self.ap_read = self._vslider("AP", "sagittal")
+        self.lat, self.lat_read = self._vslider("Lat", "coronal")
+        self.twist, self.twist_read = self._vslider("Twist", "roll")
         for slider, read in (
             (self.ap, self.ap_read),
             (self.lat, self.lat_read),
@@ -461,15 +462,24 @@ class PlannerWindow:
             column.addWidget(read[0])
             column.addWidget(slider, stretch=1)
             column.addWidget(read[1])
+            column.addWidget(read[2])
             angles.addLayout(column)
             slider.valueChanged.connect(self._angles_moved)
         right.addLayout(angles)
+        right.addWidget(QLabel("Offset from point"))
+        self.offset_slider = QSlider(self._Qt.Orientation.Horizontal)
+        self.offset_slider.setRange(0, 180)
+        self.offset_slider.setValue(0)
+        self.offset_read = QLabel("0 mm")
+        self.offset_slider.valueChanged.connect(self._offset_moved)
+        right.addWidget(self.offset_slider)
+        right.addWidget(self.offset_read)
         right.addWidget(QLabel("Optimize traj. using"))
         self.entry_use = QComboBox()
         self.entry_use.addItems(["Bone (outer skull)", "Scalp"])
         right.addWidget(self.entry_use)
-        opt = QPushButton("Optimize Now")
-        opt.clicked.connect(self._optimize)
+        opt = QPushButton("Bring to scalp")
+        opt.clicked.connect(self._bring_to_scalp)
         right.addWidget(opt)
         nudge = QHBoxLayout()
         up = QPushButton("Nudge origin up")
@@ -495,18 +505,20 @@ class PlannerWindow:
         self.widget.raise_()
         self.widget.activateWindow()
 
-    def _vslider(self, title):
+    def _vslider(self, title, note):
         from PySide6.QtWidgets import QLabel, QSlider
 
         slider = QSlider(self._Qt.Orientation.Vertical)
         slider.setRange(-1800, 1800)
         slider.setValue(0)
-        slider.setMinimumHeight(180)
+        slider.setMinimumHeight(160)
         name = QLabel(title)
         name.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
         value = QLabel("0.0")
         value.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
-        return slider, (name, value)
+        plane = QLabel(note)
+        plane.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
+        return slider, (name, value, plane)
 
     def _xyz_block(self, layout, title):
         from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit
@@ -524,13 +536,16 @@ class PlannerWindow:
             edits.append(edit)
         return edits
 
-    def _watch_clicks(self, plotter):
+    def _watch_clicks(self, plotter, key):
         from vtkmodules.vtkRenderingCore import vtkCellPicker
 
         picker = vtkCellPicker()
         picker.SetTolerance(0.01)
 
         def _press(_obj, _event):
+            kind = self._kind(self.modes[key].currentText())
+            if kind not in self._LOCKED:
+                return
             x, y = plotter.interactor.GetEventPosition()
             picker.Pick(x, y, 0, plotter.renderer)
             if picker.GetCellId() < 0:
@@ -593,12 +608,12 @@ class PlannerWindow:
         self.coord_label.setText(coord)
         if bone is None:
             self.entry_use.setCurrentText("Scalp")
-        self._suspend = True
-        self._append("Target", self.selection, "trajectory")
-        self._suspend = False
-        self.status.setText("Seating the transducer on the outer skull.")
+        self._set_angles(0.0, 0.0, 0.0)
+        self.offset_mm = 0.0
+        self._set_offset_slider(0.0)
+        self.status.setText("Click a 2D image to choose a point. It is not a target until you save it.")
         QApplication.processEvents()
-        self._optimize()
+        self._bring_to_scalp()
 
     def _surface(self):
         if self.entry_use.currentText().startswith("Bone") and self.bone is not None:
@@ -613,16 +628,48 @@ class PlannerWindow:
                 return hit
         return _outer_hit(self._surface(), target, direction)
 
+    def _direction(self, ap, lat):
+        """AP tilts in the sagittal plane. Lat tilts in the coronal plane. Zero points up."""
+        ap_r = np.deg2rad(float(ap))
+        lat_r = np.deg2rad(float(lat))
+        vec = np.array([
+            np.sin(lat_r),
+            np.sin(ap_r) * np.cos(lat_r),
+            np.cos(ap_r) * np.cos(lat_r),
+        ])
+        return vec / max(float(np.linalg.norm(vec)), 1e-8)
+
+    def _live_transducer(self):
+        origin = ijk_to_world(self.affine, self.selection)
+        return origin + self._direction(self.ap_deg, self.lat_deg) * float(self.offset_mm)
+
+    def _set_offset_slider(self, mm):
+        self.offset_slider.blockSignals(True)
+        self.offset_slider.setValue(int(round(float(mm))))
+        self.offset_slider.blockSignals(False)
+        self.offset_read.setText(f"{float(mm):.0f} mm")
+
+    def _offset_moved(self):
+        self.offset_mm = float(self.offset_slider.value())
+        self.offset_read.setText(f"{self.offset_mm:.0f} mm")
+        self._draw()
+
+    def _click(self, pos):
+        if self.data is None:
+            return
+        self.selection = self._world_to_ijk(pos)
+        self._draw()
+        self.status.setText("Point selected. Save it if this should be the target.")
+
     def _append(self, name, ijk, kind):
         item = {
             "name": name,
             "ijk": tuple(int(v) for v in ijk),
-            "ap": 0.0,
-            "lat": 0.0,
-            "twist": self.twist.value() / 10.0,
+            "ap": self.ap_deg,
+            "lat": self.lat_deg,
+            "twist": self.twist_deg,
+            "distance": self.offset_mm,
             "kind": kind,
-            "base": None,
-            "entry": None,
         }
         self.targets.append(item)
         self.names.blockSignals(True)
@@ -651,18 +698,16 @@ class PlannerWindow:
         if item is None:
             return
         self.name.setText(item["name"])
+        self.selection = tuple(int(v) for v in item["ijk"])
         self._set_angles(item["ap"], item["lat"], item["twist"])
+        self.offset_mm = float(item.get("distance", self.offset_mm))
+        self._set_offset_slider(self.offset_mm)
         self._draw()
+        self.status.setText("Showing the saved target. Click a 2D image to choose a different point.")
 
     def _mode_changed(self, key):
         self._sig.pop(key, None)
         self._aimed.discard(key)
-        self._draw()
-
-    def _click(self, pos):
-        if self.data is None:
-            return
-        self.selection = self._world_to_ijk(pos)
         self._draw()
 
     def _nudge(self, step):
@@ -685,38 +730,19 @@ class PlannerWindow:
     def _target_world(self, item):
         return ijk_to_world(self.affine, item["ijk"])
 
-    def _transducer_world(self, item):
-        if item is None or item.get("kind") == "marker":
-            return None
-        surface = self._surface()
-        target = self._target_world(item)
-        if surface is None:
-            return target + np.array([0.0, 0.0, 40.0])
-        if item.get("base") is None or item.get("entry") is None:
-            hit, direction = best_skull_entry(target, surface)
-            item["base"] = direction
-            seated = self._seat(target, direction)
-            item["entry"] = np.asarray(seated if seated is not None else hit, dtype=float)
-        if abs(float(item["ap"])) < 1e-6 and abs(float(item["lat"])) < 1e-6:
-            return np.asarray(item["entry"], dtype=float)
-        seat = self.skin if self.skin is not None else surface
-        hit = transducer_on_skin(target, seat, item["ap"], item["lat"], item["base"])
-        item["entry"] = np.asarray(hit, dtype=float)
-        return item["entry"]
-
     def _angles_moved(self):
-        self.ap_read[1].setText(f"{self.ap.value() / 10:.1f}")
-        self.lat_read[1].setText(f"{self.lat.value() / 10:.1f}")
-        self.twist_read[1].setText(f"{self.twist.value() / 10:.1f}")
-        item = self._current()
-        if item is None:
-            return
-        item["ap"] = self.ap.value() / 10.0
-        item["lat"] = self.lat.value() / 10.0
-        item["twist"] = self.twist.value() / 10.0
+        self.ap_deg = self.ap.value() / 10.0
+        self.lat_deg = self.lat.value() / 10.0
+        self.twist_deg = self.twist.value() / 10.0
+        self.ap_read[1].setText(f"{self.ap_deg:.1f}")
+        self.lat_read[1].setText(f"{self.lat_deg:.1f}")
+        self.twist_read[1].setText(f"{self.twist_deg:.1f}")
         self._draw()
 
     def _set_angles(self, ap, lat, twist):
+        self.ap_deg = float(ap)
+        self.lat_deg = float(lat)
+        self.twist_deg = float(twist)
         for slider, read, value in (
             (self.ap, self.ap_read, ap),
             (self.lat, self.lat_read, lat),
@@ -727,134 +753,66 @@ class PlannerWindow:
             slider.blockSignals(False)
             read[1].setText(f"{float(value):.1f}")
 
-    def _zero_ap_lat(self):
-        self._set_angles(0.0, 0.0, self.twist.value() / 10.0)
-
     def _new_at(self, kind, where):
         if self.selection is None or self.data is None:
             return
         ijk = self.selection
         if where == "offset":
-            item = self._current()
-            placed = self._transducer_world(item) if item is not None else None
-            if placed is not None:
-                ijk = self._world_to_ijk(placed)
-        name = self.name.text().strip() or ("Marker" if kind == "marker" else f"Trajectory {len(self.targets) + 1}")
+            ijk = self._world_to_ijk(self._live_transducer())
+        name = self.name.text().strip() or ("Marker" if kind == "marker" else f"Target {len(self.targets) + 1}")
         self._append(name, ijk, kind)
-        if kind == "trajectory":
-            self._optimize()
+        self.status.setText("Saved this point as a target.")
 
     def _set_as_target(self):
         if self.selection is None:
             return
         item = self._current()
         if item is None:
-            self._append(self.name.text().strip() or "Target", self.selection, "trajectory")
-            self._optimize()
-            return
-        item["ijk"] = self.selection
-        if item.get("entry") is not None:
-            direction = np.asarray(item["entry"], dtype=float) - self._target_world(item)
-            length = float(np.linalg.norm(direction))
-            if length > 1e-3:
-                item["base"] = direction / length
-                item["ap"] = 0.0
-                item["lat"] = 0.0
-                self._zero_ap_lat()
-        self._draw()
-        self.status.setText("Target is at the crosshair. The transducer stayed on the surface.")
-
-    def _set_as_trajectory(self):
-        if self.selection is None or self.data is None:
-            return
-        item = self._current()
-        if item is None:
-            self._append(self.name.text().strip() or "Trajectory", self.selection, "trajectory")
-            self._optimize()
-            return
-        item["kind"] = "trajectory"
-        surface = self._surface()
-        if surface is None:
-            self._QMessageBox.warning(self.widget, "Planner", "This folder has no bone or scalp surface.")
-            return
-        target = self._target_world(item)
-        point = ijk_to_world(self.affine, self.selection)
-        direction = point - target
-        if float(np.linalg.norm(direction)) < 1.0:
-            hit, direction = best_skull_entry(target, surface)
+            name = self.name.text().strip() or f"Target {len(self.targets) + 1}"
+            self._append(name, self.selection, "trajectory")
         else:
-            direction = direction / np.linalg.norm(direction)
-            hit = self._seat(target, direction)
-            if hit is None:
-                hit, direction = best_skull_entry(target, surface)
-            else:
-                direction = hit - target
-                direction = direction / max(float(np.linalg.norm(direction)), 1e-3)
-        item["base"] = direction
-        item["entry"] = np.asarray(hit, dtype=float)
-        item["ap"] = 0.0
-        item["lat"] = 0.0
-        self._zero_ap_lat()
-        self._draw()
-        self.status.setText("Trajectory is on the outer surface, through the crosshair.")
+            item["ijk"] = tuple(int(v) for v in self.selection)
+            item["ap"] = self.ap_deg
+            item["lat"] = self.lat_deg
+            item["twist"] = self.twist_deg
+            item["distance"] = self.offset_mm
+            item["kind"] = "trajectory"
+            item["name"] = self.name.text().strip() or item["name"]
+            if self.names.currentItem() is not None:
+                self.names.currentItem().setText(item["name"])
+            self._draw()
+        self.status.setText("Saved this point as the target. The 2D click is still only a selection.")
 
-    def _move_to_offset(self):
-        item = self._current()
-        if item is None:
+    def _bring_to_scalp(self):
+        if self.selection is None or self.affine is None:
             return
-        placed = self._transducer_world(item)
-        if placed is None:
-            return
-        base = item.get("base")
-        item["ijk"] = self._world_to_ijk(placed)
-        item["entry"] = None
-        item["ap"] = 0.0
-        item["lat"] = 0.0
-        self._zero_ap_lat()
-        surface = self._surface()
-        if base is not None and surface is not None:
-            hit = _outer_hit(surface, self._target_world(item), base)
-            if hit is not None:
-                item["base"] = base
-                item["entry"] = np.asarray(hit, dtype=float)
-        self._draw()
-
-    def _optimize(self):
-        item = self._current()
-        surface = self._surface()
-        self._zero_ap_lat()
-        if item is None or item.get("kind") == "marker" or surface is None:
+        origin = ijk_to_world(self.affine, self.selection)
+        direction = self._direction(self.ap_deg, self.lat_deg)
+        surface = self.skin if self.skin is not None else self.bone
+        hit = _outer_hit(surface, origin, direction) if surface is not None else None
+        if hit is None:
+            self.status.setText("That direction does not meet the scalp.")
             self._draw()
             return
-        target = self._target_world(item)
-        hit, direction = best_skull_entry(target, surface)
-        seated = self._seat(target, direction)
-        item["ap"] = 0.0
-        item["lat"] = 0.0
-        item["base"] = direction
-        item["entry"] = np.asarray(seated if seated is not None else hit, dtype=float)
+        self.offset_mm = float(np.linalg.norm(np.asarray(hit) - origin))
+        self._set_offset_slider(self.offset_mm)
         self._draw()
-        where = "outer skull" if surface is self.bone else "scalp"
-        self.status.setText(f"Transducer face is on the scalp. Direction is from the {where}.")
+        self.status.setText("Transducer is on the scalp, offset from the selected point.")
 
     def _show_offset(self):
         if self.selection is None or self.affine is None:
             for edit in self.origin_edits + self.offset_edits:
                 edit.setText("0.00")
-            self.delta.setText("Transducer - target    —")
+            self.delta.setText("Offset from the selected point")
             return
         origin = ijk_to_world(self.affine, self.selection)
-        item = self._current()
-        placed = self._transducer_world(item) if item is not None else None
-        target = self._target_world(item) if item is not None else origin
-        delta = np.zeros(3) if placed is None else np.asarray(placed) - target
-        offset = origin if placed is None else np.asarray(placed)
+        delta = self._live_transducer() - origin
         for edit, value in zip(self.origin_edits, origin):
             edit.setText(f"{float(value):.2f}")
-        for edit, value in zip(self.offset_edits, offset):
+        for edit, value in zip(self.offset_edits, delta):
             edit.setText(f"{float(value):.2f}")
         self.delta.setText(
-            "Transducer - target (mm)\nX  {0:.2f}\nY  {1:.2f}\nZ  {2:.2f}".format(*delta)
+            "Offset from point (mm)\nX  {0:.2f}\nY  {1:.2f}\nZ  {2:.2f}".format(*delta)
         )
 
     def _draw(self):
@@ -945,7 +903,7 @@ class PlannerWindow:
                     self._add_slice(plotter, specs["coronal"], "img_cor")
                 else:
                     self._add_slice(plotter, specs[kind], "img")
-        self._drop(plotter, ("target", "cross", "beam", "tx", "hx", "hy", "hz", "contact"))
+        self._drop(plotter, ("target", "cross", "beam", "tx", "hx", "hy", "hz", "contact", "arrow"))
         self._add_overlays(plotter, kind)
         if kind in self._LOCKED or key not in self._aimed:
             self._aim_view(plotter, kind)
@@ -956,9 +914,8 @@ class PlannerWindow:
     def _aim_view(self, plotter, kind):
         if kind == "scalp":
             focal = np.array(self.skin.center) if self.skin is not None else np.zeros(3)
-            item = self._current()
-            if item is not None and item.get("entry") is not None:
-                focal = 0.55 * focal + 0.45 * np.asarray(item["entry"], dtype=float)
+            if self.selection is not None and self.offset_mm > 1.0:
+                focal = 0.55 * focal + 0.45 * self._live_transducer()
             self._aim(plotter, focal, np.array([0.45, -1.0, 0.72]), 190.0, False)
             return
         if kind == "mpr":
@@ -974,49 +931,48 @@ class PlannerWindow:
     def _add_overlays(self, plotter, kind):
         import pyvista as pv
 
-        item = self._current()
         selected = ijk_to_world(self.affine, self.selection)
-        target = self._target_world(item) if item is not None else None
-        placed = self._transducer_world(item) if item is not None else None
-        if target is not None:
-            plotter.add_mesh(pv.Sphere(radius=2.0, center=target), color="red", name="target")
-        if placed is not None and target is not None:
-            plotter.add_mesh(pv.Line(target, placed), color="#00e5ff", line_width=3, name="beam")
-            direction = placed - target
-            length = float(np.linalg.norm(direction))
-            if length > 1e-3:
-                direction = direction / length
-                plotter.add_mesh(
-                    pv.Disc(center=placed, inner=0.0, outer=10.0, normal=direction, c_res=48),
-                    color="#3cb44b", name="contact",
-                )
-            if self.tx_mesh is not None:
-                mat = apply_twist(pose_matrix(target, placed), item["twist"])
-                mesh = self.tx_mesh.copy(deep=True)
-                mesh.points = (mat[:3, :3] @ np.asarray(self.tx_mesh.points).T).T + placed
-                plotter.add_mesh(mesh, color="#3cb44b", name="tx")
+        placed = self._live_transducer()
         if kind in self._LOCKED:
             _image, _origin, du, dv, _normal = self._slices()[kind]
             du = du / max(float(np.linalg.norm(du)), 1e-8)
             dv = dv / max(float(np.linalg.norm(dv)), 1e-8)
-            plotter.add_mesh(pv.Line(selected - du * 80, selected + du * 80), color="#39ff14", line_width=2, name="hx")
-            plotter.add_mesh(pv.Line(selected - dv * 80, selected + dv * 80), color="#39ff14", line_width=2, name="hy")
-        elif kind == "mpr":
-            for name, axis in zip(("hx", "hy", "hz"), self.affine[:3, :3].T):
-                step = axis / max(float(np.linalg.norm(axis)), 1e-8)
-                plotter.add_mesh(pv.Line(selected - step * 40, selected + step * 40), color="#39ff14", line_width=2, name=name)
-        else:
-            plotter.add_mesh(pv.Sphere(radius=2.0, center=selected), color="yellow", name="cross")
+            plotter.add_mesh(pv.Line(selected - du * 18, selected + du * 18), color="#39ff14", line_width=3, name="hx")
+            plotter.add_mesh(pv.Line(selected - dv * 18, selected + dv * 18), color="#39ff14", line_width=3, name="hy")
+            in_plane = du * float(np.dot(placed - selected, du)) + dv * float(np.dot(placed - selected, dv))
+            if float(np.linalg.norm(in_plane)) > 2.0:
+                plotter.add_mesh(
+                    pv.Arrow(start=selected, direction=in_plane, scale="auto", tip_radius=0.15, shaft_radius=0.05),
+                    color="#00e5ff", name="arrow",
+                )
+            return
+        item = self._current()
+        if item is not None and item.get("kind") != "marker":
+            plotter.add_mesh(pv.Sphere(radius=2.0, center=self._target_world(item)), color="red", name="target")
+        if float(self.offset_mm) > 1.0:
+            plotter.add_mesh(pv.Line(selected, placed), color="#00e5ff", line_width=3, name="beam")
+            if self.tx_mesh is not None:
+                direction = placed - selected
+                mat = apply_twist(pose_matrix(selected, placed), self.twist_deg)
+                mesh = self.tx_mesh.copy(deep=True)
+                mesh.points = (mat[:3, :3] @ np.asarray(self.tx_mesh.points).T).T + placed
+                plotter.add_mesh(mesh, color="#3cb44b", name="tx")
+                _ = direction
+
+    def _saved_pose(self, item):
+        origin = self._target_world(item)
+        direction = self._direction(item.get("ap", 0.0), item.get("lat", 0.0))
+        return origin + direction * float(item.get("distance", 0.0))
 
     def _matrix(self, item):
-        target = self._target_world(item)
-        placed = self._transducer_world(item)
-        return apply_twist(pose_matrix(target, placed), item["twist"])
+        origin = self._target_world(item)
+        placed = self._saved_pose(item)
+        return apply_twist(pose_matrix(origin, placed), item.get("twist", 0.0))
 
     def _compute(self):
         item = self._current()
         if item is None or self.m2m is None or item.get("kind") == "marker":
-            self._QMessageBox.warning(self.widget, "Planner", "Choose a trajectory first.")
+            self._QMessageBox.warning(self.widget, "Planner", "Save the selection as a target first.")
             return
         item["name"] = self.name.text().strip() or item["name"]
         dest = self.m2m / trajectory_filename(item["name"])
