@@ -308,13 +308,17 @@ class PlannerWindow:
     """Brainsight-style Targets window. A click moves the crosshair only."""
 
     _CHOICES = (
-        "3D MPR & Targets",
-        "Inline 90 & Targets",
+        "Sagittal & Targets",
+        "Coronal & Targets",
+        "Transverse & Targets",
         "Inline & Targets",
-        "Axial & Targets",
+        "Inline 90 & Targets",
+        "Perpendicular & Targets",
+        "3D MPR & Targets",
         "Scalp & Targets",
     )
-    _LOCKED = ("sagittal", "coronal", "axial")
+    _FLAT = ("sagittal", "coronal", "transverse", "inline", "inline90", "perpendicular")
+    _LOCKED = _FLAT
 
     def __init__(self):
         from PySide6.QtCore import Qt
@@ -451,7 +455,7 @@ class PlannerWindow:
         root.addWidget(right_box)
         angles = QHBoxLayout()
         self.ap, self.ap_read = self._vslider("AP", "sagittal")
-        self.lat, self.lat_read = self._vslider("Lat", "coronal")
+        self.lat, self.lat_read = self._vslider("Lat", "inline")
         self.twist, self.twist_read = self._vslider("Twist", "roll")
         for slider, read in (
             (self.ap, self.ap_read),
@@ -558,11 +562,17 @@ class PlannerWindow:
         if text.startswith("3D"):
             return "mpr"
         if text.startswith("Inline 90"):
-            return "coronal"
+            return "inline90"
         if text.startswith("Inline"):
+            return "inline"
+        if text.startswith("Perpendicular"):
+            return "perpendicular"
+        if text.startswith("Sagittal"):
             return "sagittal"
-        if text.startswith("Axial"):
-            return "axial"
+        if text.startswith("Coronal"):
+            return "coronal"
+        if text.startswith("Transverse"):
+            return "transverse"
         return "scalp"
 
     def open_m2m(self):
@@ -658,7 +668,6 @@ class PlannerWindow:
         if self.data is None:
             return
         self.selection = self._world_to_ijk(pos)
-        self._reseat_on_scalp()
         self._draw()
         self.status.setText("Point selected. Save it if this should be the target.")
 
@@ -735,15 +744,12 @@ class PlannerWindow:
         ap = self.ap.value() / 10.0
         lat = self.lat.value() / 10.0
         twist = self.twist.value() / 10.0
-        aim = abs(ap - self.ap_deg) > 1e-6 or abs(lat - self.lat_deg) > 1e-6
         self.ap_deg = ap
         self.lat_deg = lat
         self.twist_deg = twist
         self.ap_read[1].setText(f"{self.ap_deg:.1f}")
         self.lat_read[1].setText(f"{self.lat_deg:.1f}")
         self.twist_read[1].setText(f"{self.twist_deg:.1f}")
-        if aim:
-            self._reseat_on_scalp()
         self._remember_pose()
         self._draw()
 
@@ -855,20 +861,84 @@ class PlannerWindow:
             return ("scalp",)
         if kind == "mpr":
             return ("mpr", i, j, k)
+        if kind in ("inline", "inline90", "perpendicular"):
+            return (kind, i, j, k, round(self.ap_deg, 1), round(self.lat_deg, 1), round(self.twist_deg, 1))
         if kind == "sagittal":
             return ("sagittal", i)
         if kind == "coronal":
             return ("coronal", j)
-        return ("axial", k)
+        return ("transverse", k)
 
     def _slices(self):
         i, j, k = self.selection
         ai, aj, ak = self.affine[:3, 0], self.affine[:3, 1], self.affine[:3, 2]
+        transverse = (self.data[:, :, k], ijk_to_world(self.affine, (0, 0, k)), aj, ai, ak)
         return {
-            "axial": (self.data[:, :, k], ijk_to_world(self.affine, (0, 0, k)), aj, ai, ak),
+            "transverse": transverse,
             "sagittal": (self.data[i, :, :], ijk_to_world(self.affine, (i, 0, 0)), ak, aj, ai),
             "coronal": (self.data[:, j, :], ijk_to_world(self.affine, (0, j, 0)), ak, ai, aj),
         }
+
+    def _beam_axes(self, kind):
+        """Inline contains the beam. Perpendicular looks along the beam, at the transducer face."""
+        z_axis = self._direction(self.ap_deg, self.lat_deg)
+        horizontal = np.array([1.0, 0.0, 0.0]) - z_axis * float(np.dot(z_axis, [1.0, 0.0, 0.0]))
+        if float(np.linalg.norm(horizontal)) < 0.25:
+            horizontal = np.array([0.0, 1.0, 0.0]) - z_axis * float(np.dot(z_axis, [0.0, 1.0, 0.0]))
+        horizontal = horizontal / max(float(np.linalg.norm(horizontal)), 1e-8)
+        horizontal = _rotate(horizontal, z_axis, self.twist_deg)
+        if kind == "inline90":
+            horizontal = np.cross(z_axis, horizontal)
+            horizontal = horizontal / max(float(np.linalg.norm(horizontal)), 1e-8)
+        if kind == "perpendicular":
+            vertical = np.cross(z_axis, horizontal)
+            vertical = vertical / max(float(np.linalg.norm(vertical)), 1e-8)
+            normal = z_axis
+        else:
+            vertical = z_axis
+            normal = np.cross(horizontal, vertical)
+            normal = normal / max(float(np.linalg.norm(normal)), 1e-8)
+        origin = ijk_to_world(self.affine, self.selection)
+        return horizontal, vertical, normal, origin
+
+    def _view_axes(self, kind):
+        if kind in ("sagittal", "coronal", "transverse"):
+            _image, origin, du, dv, normal = self._slices()[kind]
+            return du, dv, normal, origin
+        return self._beam_axes(kind)
+
+    def _oblique_mesh(self, origin, du, dv):
+        import pyvista as pv
+
+        count = 180
+        span = 220.0
+        coords = np.linspace(-span / 2.0, span / 2.0, count)
+        uu, vv = np.meshgrid(coords, coords, indexing="xy")
+        horizontal = np.asarray(du, dtype=float)
+        vertical = np.asarray(dv, dtype=float)
+        horizontal = horizontal / max(float(np.linalg.norm(horizontal)), 1e-8)
+        vertical = vertical / max(float(np.linalg.norm(vertical)), 1e-8)
+        world = np.asarray(origin, dtype=float) + uu[..., None] * horizontal + vv[..., None] * vertical
+        inv = np.linalg.inv(self.affine)
+        hom = np.concatenate([world, np.ones(uu.shape + (1,))], axis=-1)
+        ijk = hom @ inv.T
+        shape = self.data.shape
+        ii = np.rint(ijk[..., 0])
+        jj = np.rint(ijk[..., 1])
+        kk = np.rint(ijk[..., 2])
+        valid = (
+            (ii >= 0) & (jj >= 0) & (kk >= 0)
+            & (ii < shape[0]) & (jj < shape[1]) & (kk < shape[2])
+        )
+        ii = np.clip(ii, 0, shape[0] - 1).astype(np.int32)
+        jj = np.clip(jj, 0, shape[1] - 1).astype(np.int32)
+        kk = np.clip(kk, 0, shape[2] - 1).astype(np.int32)
+        values = np.where(valid, self.data[ii, jj, kk], 0).astype(np.float32)
+        grid = pv.StructuredGrid()
+        grid.points = np.ascontiguousarray(world.reshape(-1, 3))
+        grid.dimensions = (count, count, 1)
+        grid.point_data["T1"] = np.ascontiguousarray(values).ravel(order="C")
+        return grid
 
     def _drop(self, plotter, names):
         for name in names:
@@ -884,12 +954,16 @@ class PlannerWindow:
         )
         return image, origin, du, dv
 
-    def _aim(self, plotter, focal, normal, scale, parallel):
+    def _aim(self, plotter, focal, normal, scale, parallel, up=None):
         normal = np.asarray(normal, dtype=float)
         normal = normal / max(float(np.linalg.norm(normal)), 1e-8)
-        up = np.array([0.0, 0.0, 1.0])
-        if abs(float(np.dot(up, normal))) > 0.85:
-            up = np.array([0.0, 1.0, 0.0])
+        if up is None:
+            up = np.array([0.0, 0.0, 1.0])
+            if abs(float(np.dot(up, normal))) > 0.85:
+                up = np.array([0.0, 1.0, 0.0])
+        else:
+            up = np.asarray(up, dtype=float)
+            up = up / max(float(np.linalg.norm(up)), 1e-8)
         camera = plotter.camera
         camera.focal_point = np.asarray(focal, dtype=float)
         camera.position = camera.focal_point + normal * max(float(scale) * 4.0, 300.0)
@@ -925,12 +999,19 @@ class PlannerWindow:
                 plotter.set_background("black")
                 specs = self._slices()
                 if kind == "mpr":
-                    self._add_slice(plotter, specs["axial"], "img_ax")
+                    self._add_slice(plotter, specs["transverse"], "img_ax")
                     self._add_slice(plotter, specs["sagittal"], "img_sag")
                     self._add_slice(plotter, specs["coronal"], "img_cor")
+                elif kind in ("inline", "inline90", "perpendicular"):
+                    du, dv, _normal, origin = self._beam_axes(kind)
+                    plotter.add_mesh(
+                        self._oblique_mesh(origin, du, dv),
+                        scalars="T1", cmap="gray", clim=self.clim,
+                        show_scalar_bar=False, lighting=False, name="img",
+                    )
                 else:
                     self._add_slice(plotter, specs[kind], "img")
-        self._drop(plotter, ("target", "cross", "beam", "tx", "hx", "hy", "hz", "contact", "arrow"))
+        self._drop(plotter, ("target", "cross", "beam", "tx", "hx", "hy", "hz", "contact", "arrow", "mark", "label"))
         self._add_overlays(plotter, kind)
         if kind in self._LOCKED or key not in self._aimed:
             self._aim_view(plotter, kind)
@@ -950,6 +1031,13 @@ class PlannerWindow:
             # Sagittal slice lies in YZ. Look along X so it shows the side of the head.
             self._aim(plotter, focal, np.array([1.0, -0.32, 0.2]), 150.0, False)
             return
+        du, dv, normal, origin = self._view_axes(kind)
+        if kind in ("inline", "inline90"):
+            self._aim(plotter, origin, normal, 110.0, True, up=dv)
+            return
+        if kind == "perpendicular":
+            self._aim(plotter, origin, normal, 110.0, True, up=dv)
+            return
         image, origin, du, dv, normal = self._slices()[kind]
         focal = origin + du * (image.shape[1] / 2.0) + dv * (image.shape[0] / 2.0)
         span = max(np.linalg.norm(du) * image.shape[1], np.linalg.norm(dv) * image.shape[0])
@@ -960,18 +1048,28 @@ class PlannerWindow:
 
         selected = ijk_to_world(self.affine, self.selection)
         placed = self._live_transducer()
-        if kind in self._LOCKED:
-            _image, _origin, du, dv, _normal = self._slices()[kind]
+        if kind in self._FLAT:
+            du, dv, _normal, _origin = self._view_axes(kind)
             du = du / max(float(np.linalg.norm(du)), 1e-8)
             dv = dv / max(float(np.linalg.norm(dv)), 1e-8)
-            plotter.add_mesh(pv.Line(selected - du * 18, selected + du * 18), color="#39ff14", line_width=3, name="hx")
-            plotter.add_mesh(pv.Line(selected - dv * 18, selected + dv * 18), color="#39ff14", line_width=3, name="hy")
+            plotter.add_mesh(pv.Line(selected - du * 220, selected + du * 220), color="#39ff14", line_width=2, name="hx")
+            plotter.add_mesh(pv.Line(selected - dv * 220, selected + dv * 220), color="#39ff14", line_width=2, name="hy")
             in_plane = du * float(np.dot(placed - selected, du)) + dv * float(np.dot(placed - selected, dv))
-            if float(np.linalg.norm(in_plane)) > 2.0:
-                plotter.add_mesh(
-                    pv.Arrow(start=selected, direction=in_plane, scale="auto", tip_radius=0.15, shaft_radius=0.05),
-                    color="#00e5ff", name="arrow",
-                )
+            if float(np.linalg.norm(in_plane)) > 1.5:
+                tip = selected + in_plane
+                plotter.add_mesh(pv.Line(selected, tip), color="#00e5ff", line_width=2, name="arrow")
+                plotter.add_mesh(pv.Line(tip - du * 6, tip + du * 6), color="#ff5a5a", line_width=3, name="mark")
+                plotter.add_mesh(pv.Line(tip - dv * 6, tip + dv * 6), color="#ff5a5a", line_width=3, name="contact")
+                item = self._current()
+                if item is not None:
+                    try:
+                        plotter.add_point_labels(
+                            [tip], [item["name"]], name="label", font_size=14,
+                            text_color="#00e5ff", show_points=False, shape_opacity=0,
+                            reset_camera=False, render=False,
+                        )
+                    except Exception:
+                        pass
             return
         item = self._current()
         if item is not None and item.get("kind") != "marker":
