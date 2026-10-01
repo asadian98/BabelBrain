@@ -22,19 +22,14 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Brainsight planning on Basis - Targets. Build this. No simulation. Do not commit the Hamid scan.
-
-Window: target list, axial MRI, sagittal MRI, 3D MRI, scalp with the transducer. MRI scrolling must stay smooth. Drop the two click-to-pick buttons. That second pick crashed because picking was already on.
-
-Steps: open the local Hamid m2m. Place a target on a slice, or create one at the crosshair. AP, Lat, and Twist move the transducer on the scalp. The target stays fixed. Optimize entry on the scalp. Several named targets, one selected. Compute Simulation writes the sync files and starts BabelBrain with `-bInUseWithBrainsight`. Results folder is the m2m folder. Atlas picking and camera tracking come later.
-
-Replace Reply when that window works.
+Screenshots are in `BabelBrain/Planner/brainsight_reference/`. `01_layout.png` is the full Targets window. `02_lat_moved.png` is Lat moved, target fixed. `03_new_menu.png` is New, Trajectory at the crosshair offset. Match those. No simulation.
 
 ### Reply
 
-- Commit tested: 3639438
-- `--check`: not rerun. No simulation.
-- Sync files: unchanged. The Hamid scan stays on this PC.
-- Launch: each window can show axial, sagittal, coronal, or scalp. Sagittal was edge-on. A click moves the crosshair and the offset is shown in mm. Buttons set that point as the target or the trajectory. Optimize entry uses bone.stl, the outer skull, so it does not land on the ear.
-- Change needed: commit screenshots of the Brainsight planning screen to BabelBrain/Planner/brainsight_reference/. Include the target list, MRI panes, AP Lat Twist, and the crosshair numbers. No clinical scan.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
