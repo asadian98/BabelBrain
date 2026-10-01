@@ -32,11 +32,11 @@ Send a screenshot of the open window in the next Reply.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 00646fe
+- `--check`: OK, NIfTI:S:Scanner, local m2m not uploaded
+- Sync files: not written
+- Launch: window open. Sagittal shows the side of the head. Sliders and X Y Z mm are on the right. Screenshot stayed here because it shows the subject.
+- Change needed: none
 
 
 
