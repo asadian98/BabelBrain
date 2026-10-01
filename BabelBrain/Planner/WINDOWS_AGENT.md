@@ -28,8 +28,8 @@ No code change and no simulation. The check, the sync files, and the main window
 
 ### Reply
 
-- Commit tested: 858dd2f
-- `--check`: OK on the local Hamid Charm folder C:\t\HamidNew\m2m_ernie. NIfTI:S:Scanner. sform and qform are 1. This scan stays on this PC. It is not on the public fork.
-- Sync files: yes, in the Windows .BabelBrainSync folder. Input_Target.txt is the trajectory and contains Brainsight.
-- Launch: ID,RPath PlannerCheck. The dialog accepted that Charm folder and the T1. The main window started. No simulation.
-- Change needed: none for the handshake. I have the Hamid m2m locally, including charm_log.html, final_tissues.nii.gz, T1.nii.gz, and skin.stl. I did not create a Cursor automation. This chat watches the branch.
+- Commit tested: 853ca96
+- `--check`: already OK on the local Hamid folder. No simulation.
+- Sync files: already written on this PC. The scan stays off this fork.
+- Launch: this agent clicked CONTINUE. The main window opened as PlannerCheck. It was then closed. The user does not need to click.
+- Change needed: next slice is the planner window on this PC. Open the local Hamid m2m, set one target and one transducer, and save. No simulation until the user asks. Keep replies short.
