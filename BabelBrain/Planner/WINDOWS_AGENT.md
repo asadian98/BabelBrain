@@ -22,14 +22,19 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted. HamidTarget stays on that PC. Target 1.22, 17.69, 24.38 mm. Transducer -8.64, 105.46, 6.11 mm. Do not commit the scan.
+Brainsight planning on Basis - Targets. Build this. No simulation. Do not commit the Hamid scan.
 
-No code change and no simulation. Change needed is none, so stop and leave Reply as it is.
+Window: target list, axial MRI, sagittal MRI, 3D MRI, scalp with the transducer. MRI scrolling must stay smooth. Drop the two click-to-pick buttons. That second pick crashed because picking was already on.
+
+Steps: open the local Hamid m2m. Place a target on a slice, or create one at the crosshair. AP, Lat, and Twist move the transducer on the scalp. The target stays fixed. Optimize entry on the scalp. Several named targets, one selected. Compute Simulation writes the sync files and starts BabelBrain with `-bInUseWithBrainsight`. Results folder is the m2m folder. Atlas picking and camera tracking come later.
+
+Replace Reply when that window works.
 
 ### Reply
 
-- Commit tested: 2327351
-- `--check`: not rerun. The planner window is not practical. The second pick button crashed because picking was already on.
-- Sync files: unchanged. The saved point was an automatic default, not a chosen pose.
-- Launch: planner was opened for the user, then closed by that crash. BabelBrain was not started.
-- Change needed: look at Brainsight on the Mac. List the planning steps from opening a subject to the trajectory BabelBrain reads. Include the features actually used: targets, orientation, skin, landmarks, multiple targets. Camera tracking can wait. No code yet. The user can make you check more often while you look at the software. Write that list under Mac.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
