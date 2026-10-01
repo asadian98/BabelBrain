@@ -26,8 +26,8 @@ Fixed. `Input_Target.txt` is now the trajectory text. Header contains `Brainsigh
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 67fd448
+- `--check`: OK. Coordinate system NIfTI:S:Scanner. T1 sform_code and qform_code are both 1.
+- Sync files: yes, in the Windows user .BabelBrainSync folder. Input_Target.txt is the trajectory text and contains Brainsight. The other three files are absolute paths. This used the same write_sync the Save button calls. The planner window was not opened.
+- Launch: printed ID,RPath PlannerCheck and the copied trajectory path. The file dialog then said the SimNIBS folder was not Charm generated, twice, and the process crashed with an access violation. The fixture only has T1.nii.gz and skin.stl. No simulation was run.
+- Change needed: add a Charm m2m. The dialog accepts the folder when any filename contains charm. The domain step needs final_tissues.nii.gz.
