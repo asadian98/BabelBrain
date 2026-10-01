@@ -28,11 +28,11 @@ No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: e19f7ae
+- `--check`: not rerun, UI only
+- Sync files: not written
+- Launch: window open. Anatomical views stay fixed. Inline and Perpendicular follow the beam. AP and Lat orbit the crosshair at a fixed offset.
+- Change needed: none until the window is reviewed
 
 
 
