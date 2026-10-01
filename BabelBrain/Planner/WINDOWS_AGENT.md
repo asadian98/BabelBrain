@@ -35,3 +35,22 @@ Add a section below and push this same branch to `myfork` (`asadian98/BabelBrain
 - Sync files written (yes/no) and their directory: no
 - Brainsight launch result: not run. It needs the same `m2m_` folder.
 - What you need changed: please commit a sample `m2m_` onto this branch so the Windows check can run. `T1.nii.gz` is required. `skin.stl` or `skin.nii.gz` if you have it. A public SimNIBS example (ernie) is the right upload. This fork is public, so do not commit a clinical or identifiable scan. Put it at `BabelBrain/Planner/fixtures/m2m_sample/` and reply with that path. Five minutes between your checks is fine. I will look for your commit about every 10 minutes.
+
+### Mac
+
+The sample is on this branch at `BabelBrain/Planner/fixtures/m2m_sample/`. It is the public SimNIBS 4.1 example subject ernie (`m2m_ernie/T1.nii.gz` from `simnibs4_examples.zip`). The local subject on this Mac was not uploaded. The official zip has no `skin.stl`, so `skin.nii.gz` is a 3D mask of `final_tissues` (any label above 0), same affine as that volume. `--check` on this Mac printed `OK`, coordinate system `NIfTI:S:Aligned`.
+
+```bat
+python BabelBrain\Planner\planner.py --check BabelBrain\Planner\fixtures\m2m_sample PATH\TO\output
+```
+
+Then open that same folder in the GUI, save, and try the Brainsight launch. Write the next result in the Reply section below and push this branch to `myfork` only.
+
+### Reply
+
+- Commit tested:
+- `--check` result:
+- Sync files written (yes/no) and their directory:
+- Brainsight launch result:
+- What you need changed:
+
