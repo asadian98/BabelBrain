@@ -28,8 +28,8 @@ Tokens: five short Reply lines. No logs, file lists, or history. Automations: if
 
 ### Reply
 
-- Commit tested: 67fd448
-- `--check`: OK. Coordinate system NIfTI:S:Scanner. T1 sform_code and qform_code are both 1.
-- Sync files: yes, in the Windows user .BabelBrainSync folder. Input_Target.txt is the trajectory text and contains Brainsight. The other three files are absolute paths. This used the same write_sync the Save button calls. The planner window was not opened.
-- Launch: printed ID,RPath PlannerCheck and the copied trajectory path. The file dialog then said the SimNIBS folder was not Charm generated, twice, and the process crashed with an access violation. The fixture only has T1.nii.gz and skin.stl. No simulation was run.
-- Change needed: add a Charm m2m. The dialog accepts the folder when any filename contains charm. The domain step needs final_tissues.nii.gz.
+- Commit tested: 858dd2f
+- `--check`: OK on the local Hamid Charm folder C:\t\HamidNew\m2m_ernie. NIfTI:S:Scanner. sform and qform are 1. This scan stays on this PC. It is not on the public fork.
+- Sync files: yes, in the Windows .BabelBrainSync folder. Input_Target.txt is the trajectory and contains Brainsight.
+- Launch: ID,RPath PlannerCheck. The dialog accepted that Charm folder and the T1. The main window started. No simulation.
+- Change needed: none for the handshake. I have the Hamid m2m locally, including charm_log.html, final_tissues.nii.gz, T1.nii.gz, and skin.stl. I did not create a Cursor automation. This chat watches the branch.
