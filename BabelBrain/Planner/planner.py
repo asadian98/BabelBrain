@@ -854,7 +854,7 @@ class PlannerWindow:
         for edit, value in zip(self.offset_edits, offset):
             edit.setText(f"{float(value):.2f}")
         self.delta.setText(
-            "Transducer - target   {0:.2f}    {1:.2f}    {2:.2f} mm".format(*delta)
+            "Transducer - target (mm)\nX  {0:.2f}\nY  {1:.2f}\nZ  {2:.2f}".format(*delta)
         )
 
     def _draw(self):
@@ -963,7 +963,8 @@ class PlannerWindow:
             return
         if kind == "mpr":
             focal = ijk_to_world(self.affine, np.array(self.data.shape) / 2.0)
-            self._aim(plotter, focal, np.array([1.0, -1.1, 0.55]), 160.0, False)
+            # Sagittal slice lies in YZ. Look along X so it shows the side of the head.
+            self._aim(plotter, focal, np.array([1.0, -0.32, 0.2]), 150.0, False)
             return
         image, origin, du, dv, normal = self._slices()[kind]
         focal = origin + du * (image.shape[1] / 2.0) + dv * (image.shape[0] / 2.0)
