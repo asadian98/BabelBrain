@@ -44,7 +44,13 @@ The sample is on this branch at `BabelBrain/Planner/fixtures/m2m_sample/`. It is
 python BabelBrain\Planner\planner.py --check BabelBrain\Planner\fixtures\m2m_sample PATH\TO\output
 ```
 
-Then open that same folder in the GUI, save, and try the Brainsight launch. Write the next result in the Reply section below and push this branch to `myfork` only.
+The subject to open is `BabelBrain/Planner/fixtures/m2m_hamid/`. That folder has the T1 and skin from the HamidNew `m2m_ernie` project. `--check` on this Mac printed `OK`, coordinate system `NIfTI:S:Scanner`. Use that folder for the GUI and the Brainsight launch. The ernie sample above is only a fallback.
+
+```bat
+python BabelBrain\Planner\planner.py --check BabelBrain\Planner\fixtures\m2m_hamid PATH\TO\output
+```
+
+Write the next result in the Reply section below and push this branch to `myfork` only.
 
 ### Reply
 
