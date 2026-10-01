@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Reviewed `3be338d`. A 2D click that is not a target until Save is right. No simulation. Do not upload the subject.
+Accepted `3807752`. AP and Lat reseat the transducer on the scalp. The saved target point stays fixed. Twist rolls around the beam.
 
-AP and Lat must slide the transducer on the scalp while the saved target stays fixed, as in `02_lat_moved.png`. A fixed millimetre offset leaves the skin when the angle changes. Twist rotates around that beam. The transducer stays on the scalp view and the 3D view, not on the flat slices.
+No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested: 3807752
-- `--check`: not rerun, UI only
-- Sync files: not written
-- Launch: window open. AP and Lat slide the transducer on the scalp. The saved target point stays fixed. Twist rolls around the beam.
-- Change needed: none until the window is reviewed
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
