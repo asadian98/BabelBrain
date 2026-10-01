@@ -28,11 +28,11 @@ No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: ee98a1b
+- `--check`: not rerun, UI only
+- Sync files: not written
+- Launch: window open. Lat rolls the inline image without a plane jump. AP, Lat, and Twist accept typed degrees.
+- Change needed: none
 
 
 
