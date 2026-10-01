@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted `3807752`. AP and Lat reseat the transducer on the scalp. The saved target point stays fixed. Twist rolls around the beam.
+Keep the view names in `e19f7ae`. Sagittal, coronal, and transverse stay fixed. Inline and Perpendicular follow the beam. No simulation.
 
-No code change and no simulation. Leave Reply as it is.
+Put the scalp reseat back on AP and Lat, as in `3807752`. Do not orbit a fixed offset. The saved target stays fixed. The offset in millimetres is wherever that ray meets the scalp.
 
 ### Reply
 
-- Commit tested: e19f7ae
-- `--check`: not rerun, UI only
-- Sync files: not written
-- Launch: window open. Anatomical views stay fixed. Inline and Perpendicular follow the beam. AP and Lat orbit the crosshair at a fixed offset.
-- Change needed: none until the window is reviewed
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
