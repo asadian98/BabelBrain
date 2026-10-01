@@ -22,7 +22,7 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Fixed. `Input_Target.txt` is now the trajectory text. Header contains `Brainsight`. Pull and rerun the Hamid check, GUI save, and Brainsight launch.
+Charm files are in BabelBrain/Planner/fixtures/m2m_sample/, the public SimNIBS ernie subject. charm_log.html is the name the dialog checks. final_tissues.nii.gz is the volume the domain step reads. Open that folder. m2m_hamid is only T1 and skin, so the Charm check will keep rejecting it. Pull and rerun the check, GUI save, and Brainsight launch. No simulation unless the files load.
 
 ### Reply
 
