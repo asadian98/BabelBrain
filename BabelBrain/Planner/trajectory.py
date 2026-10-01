@@ -71,7 +71,7 @@ def write_trajectory(path, target_name: str, mat: np.ndarray, t1_path: str) -> N
     text = "\n".join([
         "# Version: 14",
         f"# Coordinate system: {coordinate_system(t1_path)}",
-        "# Created by: BabelBrain Planner",
+        "# Created by: BabelBrain Planner (Brainsight)",
         "# Units: millimetres, degrees, milliseconds, and microvolts",
         "# Encoding: UTF-8",
         "# Notes: Each column is delimited by a tab. Each value within a column is delimited by a semicolon.",
@@ -88,16 +88,22 @@ def sync_dir() -> Path:
 
 
 def write_sync(trajectory_path: str, t1_path: str, m2m_path: str, output_path: str) -> Path:
-    """Write the four one-path-per-line files GetInputFromBrainsight reads."""
+    """Write the sync files GetInputFromBrainsight reads.
+
+    Input_Target.txt is the trajectory text. BabelBrain reads that file
+    with GetBrainSightHeader and then copies it next to the output.
+    The other three files are one absolute path per line.
+    """
     folder = sync_dir()
     folder.mkdir(parents=True, exist_ok=True)
-    files = {
-        "Input_Target.txt": trajectory_path,
+    trajectory = Path(trajectory_path).read_text(encoding="utf-8")
+    (folder / "Input_Target.txt").write_text(trajectory, encoding="utf-8")
+    paths = {
         "Input_Anatomical.txt": t1_path,
         "Input_SegmentationsPath.txt": m2m_path,
         "SimulationOutputPath.txt": output_path,
     }
-    for name, value in files.items():
+    for name, value in paths.items():
         (folder / name).write_text(os.path.abspath(value) + "\n", encoding="utf-8")
     return folder
 
