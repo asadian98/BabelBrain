@@ -744,12 +744,15 @@ class PlannerWindow:
         ap = self.ap.value() / 10.0
         lat = self.lat.value() / 10.0
         twist = self.twist.value() / 10.0
+        aim = abs(ap - self.ap_deg) > 1e-6 or abs(lat - self.lat_deg) > 1e-6
         self.ap_deg = ap
         self.lat_deg = lat
         self.twist_deg = twist
         self.ap_read[1].setText(f"{self.ap_deg:.1f}")
         self.lat_read[1].setText(f"{self.lat_deg:.1f}")
         self.twist_read[1].setText(f"{self.twist_deg:.1f}")
+        if aim:
+            self._reseat_on_scalp()
         self._remember_pose()
         self._draw()
 
