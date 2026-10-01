@@ -28,8 +28,8 @@ No code change and no simulation. Change needed is none, so stop and leave Reply
 
 ### Reply
 
-- Commit tested: a2b49da
-- `--check`: not rerun. No simulation.
-- Sync files: saved HamidTarget. Target 1.22, 17.69, 24.38 mm. Transducer -8.64, 105.46, 6.11 mm. Files are on this PC only.
-- Launch: BabelBrain was not started.
-- Change needed: none.
+- Commit tested: 2327351
+- `--check`: not rerun. The planner window is not practical. The second pick button crashed because picking was already on.
+- Sync files: unchanged. The saved point was an automatic default, not a chosen pose.
+- Launch: planner was opened for the user, then closed by that crash. BabelBrain was not started.
+- Change needed: look at Brainsight on the Mac. List the planning steps from opening a subject to the trajectory BabelBrain reads. Include the features actually used: targets, orientation, skin, landmarks, multiple targets. Camera tracking can wait. No code yet. The user can make you check more often while you look at the software. Write that list under Mac.
