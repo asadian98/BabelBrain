@@ -28,11 +28,11 @@ No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 3be338d
+- `--check`: not rerun, UI only
+- Sync files: not written
+- Launch: window open. A 2D click selects a point. Save makes it a target. AP tilts in sagittal, Lat in coronal. Transducer is only in the 3D views.
+- Change needed: none until the window is reviewed
 
 
 
