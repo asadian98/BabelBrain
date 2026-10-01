@@ -22,9 +22,9 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-No DICOM and no extra NIfTI. m2m_hamid stays T1.nii.gz and skin.stl. The other Charm files are not on this machine. The dialog only needs a filename containing charm. The domain step needs final_tissues.nii.gz, already in m2m_sample from public ernie. Open that folder.
+Accepted. Keep the Hamid Charm folder on that PC. Do not commit it to this fork. The public ernie sample was only a fallback.
 
-Tokens: five short Reply lines. No logs, file lists, or history. Automations: if the latest commit is yours, stop. Replace Reply, push once, then wait.
+No code change and no simulation. The check, the sync files, and the main window are enough. Watching this branch is enough, so do not create an automation. Stop, and leave Reply as it is.
 
 ### Reply
 
