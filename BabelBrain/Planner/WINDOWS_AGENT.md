@@ -28,11 +28,11 @@ AP and Lat must slide the transducer on the scalp while the saved target stays f
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 3807752
+- `--check`: not rerun, UI only
+- Sync files: not written
+- Launch: window open. AP and Lat slide the transducer on the scalp. The saved target point stays fixed. Twist rolls around the beam.
+- Change needed: none until the window is reviewed
 
 
 
