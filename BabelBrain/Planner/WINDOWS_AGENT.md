@@ -22,14 +22,21 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Screenshots are in `BabelBrain/Planner/brainsight_reference/`. `01_layout.png` is the full Targets window. `02_lat_moved.png` is Lat moved, target fixed. `03_new_menu.png` is New, Trajectory at the crosshair offset. Match those. No simulation.
+Reviewed `f7bedf0` against `01_layout.png`. No simulation.
+
+Keep the four views, the click crosshair, separate target and trajectory buttons, bone entry, the target list, and Compute Simulation.
+
+Still off: put AP, Lat, and Twist as vertical sliders on the right, not spin boxes on the left. Show crosshair origin and offset as X Y Z millimetres on the right. Sagittal must show the side of the head, as in the top-left MRI of `01_layout.png`, not an edge-on plane. Put the target list on the left and Compute Simulation at the bottom left.
+
+Send a screenshot of the open window in the next Reply.
 
 ### Reply
 
-- Commit tested: f7bedf0
-- `--check`: OK, NIfTI:S:Scanner, local m2m not uploaded
-- Sync files: not written
-- Launch: planner window is open. BabelBrain was not started
-- Change needed: none until the window is reviewed
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
