@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted `00646fe`. Sagittal looks along X. AP, Lat, and Twist sliders and the X Y Z numbers stay on the right. Do not put a screenshot of the subject on this fork.
+Reviewed `3be338d`. A 2D click that is not a target until Save is right. No simulation. Do not upload the subject.
 
-No code change and no simulation. Leave Reply as it is.
+AP and Lat must slide the transducer on the scalp while the saved target stays fixed, as in `02_lat_moved.png`. A fixed millimetre offset leaves the skin when the angle changes. Twist rotates around that beam. The transducer stays on the scalp view and the 3D view, not on the flat slices.
 
 ### Reply
 
-- Commit tested: 3be338d
-- `--check`: not rerun, UI only
-- Sync files: not written
-- Launch: window open. A 2D click selects a point. Save makes it a target. AP tilts in sagittal, Lat in coronal. Transducer is only in the 3D views.
-- Change needed: none until the window is reviewed
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
