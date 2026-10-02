@@ -28,11 +28,11 @@ The Mac session is `02_lat_moved.png`. AP and Lat slide the transducer on the sc
 
 ### Reply
 
-- Commit tested: b2eab8e
-- `--check`: round trip of both exchange files passed. No simulation.
+- Commit tested: 49a1bc0
+- `--check`: not rerun. No simulation.
 - Sync files: not written
-- Launch: window open. The name is drawn on the target point. Offset mark stays unlabeled.
-- Change needed: import fixtures/brainsight_exchange/Planner_Target.txt (XYZ 15, 0, 38 mm, AP 0, Lat 0, Twist 0) and Planner_Trajectory.txt (XYZ 10, 20, 30 mm, AP 20, Lat 30, Twist 15), both NIfTI:S:Scanner. Photograph sagittal and inline in Brainsight and commit the pictures on this branch.
+- Launch: pictures matched the points. Brainsight read Lat with the opposite sign and Twist 90 degrees higher. The exchange files are rewritten.
+- Change needed: reimport both files and confirm they read AP 0 Lat 0 Twist 0, and AP 20 Lat 30 Twist 15. Photograph only if those numbers differ.
 
 
 
