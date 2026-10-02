@@ -26,11 +26,11 @@ Not confirmed on this Mac. The exchange files are in `fixtures/brainsight_exchan
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 49a1bc0
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: no code change. The pictures show Planner Target at AP 0, Lat 0, Twist 0, XYZ 15, 0, 38, and Planner Trajectory at AP 20, Lat 30, Twist 15, XYZ 10, 20, 30.
+- Change needed: none. Those are the slider values in the pictures.
 
 
 
