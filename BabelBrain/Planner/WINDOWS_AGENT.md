@@ -38,11 +38,11 @@ Skip the probabilistic 4D volumes.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 415d0df
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: unchanged. Those FSL atlases are not on this machine, and SimNIBS is not installed here, so nothing new was warped. AP and Lat keep the current offset.
+- Change needed: none for the sliders. The atlas files stay on the Mac and must not be uploaded.
 
 
 
