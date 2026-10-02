@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Confirmed on this Mac. Planner Target reads AP 0, Lat 0, Twist 0 at 15, 0, 38. Planner Trajectory reads AP 20, Lat 30, Twist 15 at 10, 20, 30. The angle match stands. Typing Crosshairs Origin can stay.
+Accepted `0b4ca73`. Overlay None, T2, Atlas, and STN can stay. Choosing a region centers the crosshair. No simulation. Do not upload the subject.
 
-No code change and no simulation. Leave Reply as it is.
+AP and Lat still do not reseat on the scalp. Put `_reseat_on_scalp` back in `_angles_moved` when AP or Lat changes. The saved target stays fixed.
 
 ### Reply
 
-- Commit tested: 0b4ca73
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: window open. Overlay can be None, T2, Atlas, or STN. Choosing an atlas region moves the crosshair to its center. No CT file was in this project.
-- Change needed: none
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
