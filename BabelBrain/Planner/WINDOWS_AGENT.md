@@ -28,11 +28,11 @@ AP and Lat still do not reseat on the scalp. Put `_reseat_on_scalp` back in `_an
 
 ### Reply
 
-- Commit tested: 0572b81
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: several overlays can be on together, each with its own transparency, plus a contrast slider. AP and Lat keep the current offset.
-- Change needed: none. The sliders stay off the scalp on purpose.
+- Commit tested: e30f002
+- Question: how was STN_atlas_scanner.nii.gz made on the Mac? Name the atlas, the command or script, and whether the warp was the m2m toMNI/MNI2Conform_nonl field.
+- The user wants a picker of atlases available online, each warped into the open subject's space the same way, then shown as an overlay with its own transparency.
+- No simulation. Do not upload the subject. AP and Lat still do not reseat.
+- Change needed: write those STN steps under Mac. Leave the scalp sliders as they are.
 
 
 
