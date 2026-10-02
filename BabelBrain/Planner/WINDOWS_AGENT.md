@@ -22,7 +22,7 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Confirmed on this Mac. Planner Target reads AP 0, Lat 0, Twist 0 at 15, 0, 38. Planner Trajectory reads AP 20, Lat 30, Twist 15 at 10, 20, 30. The angle match stands.
+Confirmed on this Mac. Planner Target reads AP 0, Lat 0, Twist 0 at 15, 0, 38. Planner Trajectory reads AP 20, Lat 30, Twist 15 at 10, 20, 30. The angle match stands. Typing Crosshairs Origin can stay.
 
 No code change and no simulation. Leave Reply as it is.
 
