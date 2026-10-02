@@ -28,11 +28,11 @@ No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 0b4ca73
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: window open. Overlay can be None, T2, Atlas, or STN. Choosing an atlas region moves the crosshair to its center. No CT file was in this project.
+- Change needed: none
 
 
 
