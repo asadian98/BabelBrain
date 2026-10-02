@@ -399,6 +399,13 @@ def discover_overlays(m2m: Path, reference) -> dict:
         return f"STN {side}"
 
     take_atlas("STN", m2m / "STN_atlas_scanner.nii.gz", None, stn_name)
+    used = {m2m / "segmentation" / "labeling.nii.gz", m2m / "STN_atlas_scanner.nii.gz"}
+    for path in sorted(m2m.glob("*atlas*.nii.gz")):
+        if path in used or path.name in overlays:
+            continue
+        lut = path.with_name(path.name.replace(".nii.gz", "") + "_LUT.txt")
+        title = "STN" if "stn" in path.name.lower() else path.name.replace(".nii.gz", "").replace("_", " ")
+        take_atlas(title, path, lut, lambda label, _world, title=title: f"{title} {label}")
     return overlays
 
 
@@ -482,7 +489,9 @@ class PlannerWindow:
         self._frame_h = None
         self.offset_mm = 0.0
         self.clim = (0.0, 1.0)
+        self.base_clim = (0.0, 1.0)
         self.overlay_sets = {}
+        self.layer_rows = {}
         self._suspend = False
         self._sig = {}
         self._aimed = set()
@@ -497,7 +506,7 @@ class PlannerWindow:
 
         left = QVBoxLayout()
         left_box = QWidget()
-        left_box.setFixedWidth(250)
+        left_box.setFixedWidth(280)
         left_box.setLayout(left)
         root.addWidget(left_box)
         open_btn = QPushButton("Open m2m folder")
@@ -506,15 +515,21 @@ class PlannerWindow:
         self.path_label = QLabel("No project")
         self.path_label.setWordWrap(True)
         left.addWidget(self.path_label)
-        left.addWidget(QLabel("Overlay"))
-        self.overlay = QComboBox()
-        self.overlay.addItem("None")
-        self.overlay.currentTextChanged.connect(self._overlay_changed)
-        left.addWidget(self.overlay)
-        self.region = QComboBox()
-        self.region.setEnabled(False)
-        self.region.currentTextChanged.connect(self._region_changed)
-        left.addWidget(self.region)
+        left.addWidget(QLabel("Contrast"))
+        self.contrast_slider = QSlider(self._Qt.Orientation.Horizontal)
+        self.contrast_slider.setRange(0, 100)
+        self.contrast_slider.setValue(50)
+        self.contrast_slider.valueChanged.connect(self._contrast_changed)
+        left.addWidget(self.contrast_slider)
+        from PySide6.QtWidgets import QScrollArea
+        self.layer_host = QWidget()
+        self.layers_layout = QVBoxLayout(self.layer_host)
+        self.layers_layout.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.layer_host)
+        scroll.setMaximumHeight(230)
+        left.addWidget(scroll)
         left.addWidget(QLabel("Name"))
         self.names = QListWidget()
         self.names.currentRowChanged.connect(self._select_target)
@@ -723,7 +738,8 @@ class PlannerWindow:
         self._sig.clear()
         self._aimed.clear()
         positive = data[data > 0]
-        self.clim = tuple(float(v) for v in np.percentile(positive, [1, 99])) if positive.size else (0.0, 1.0)
+        self.base_clim = tuple(float(v) for v in np.percentile(positive, [1, 99])) if positive.size else (0.0, 1.0)
+        self.clim = self._window(self.base_clim)
         self.selection = tuple(int(n // 2) for n in data.shape)
         self.path_label.setText(str(m2m))
         self.coord_label.setText(coord)
@@ -998,74 +1014,149 @@ class PlannerWindow:
         for key, plotter in self.views.items():
             self._draw_one(key, plotter)
 
-    def _current_overlay(self):
-        name = self.overlay.currentText() if hasattr(self, "overlay") else "None"
-        if name in (None, "", "None"):
-            return None
-        return self.overlay_sets.get(name)
+    def _window(self, clim):
+        """50 is the loaded window. Higher tightens it. Lower opens it up."""
+        lo, hi = float(clim[0]), float(clim[1])
+        mid = 0.5 * (lo + hi)
+        half = max(0.5 * (hi - lo), 1e-3)
+        t = (self.contrast_slider.value() - 50) / 50.0
+        factor = 1.0 - t * 0.65 if t >= 0 else 1.0 - t * 1.4
+        return (mid - half * factor, mid + half * factor)
 
-    def _active_region(self):
-        overlay = self._current_overlay()
-        if overlay is None or overlay["kind"] != "atlas":
-            return None
-        chosen = self.region.currentText()
-        for region in overlay["regions"]:
-            if region["name"] == chosen:
-                return region
-        return overlay["regions"][0] if overlay["regions"] else None
+    def _stem(self, name):
+        return "".join(ch if ch.isalnum() else "_" for ch in name)
+
+    def _contrast_changed(self):
+        if self.data is None:
+            return
+        self.clim = self._window(self.base_clim)
+        self._sig.clear()
+        self._draw()
+
+    def _checked_regions(self, name):
+        row = self.layer_rows.get(name)
+        overlay = self.overlay_sets.get(name)
+        if row is None or overlay is None or row.get("regions") is None:
+            return []
+        chosen = []
+        for index in range(row["regions"].count()):
+            item = row["regions"].item(index)
+            if item.checkState() == self._Qt.CheckState.Checked:
+                chosen.append(overlay["regions"][index])
+        return chosen
+
+    def _active_layers(self):
+        layers = []
+        for name, overlay in self.overlay_sets.items():
+            row = self.layer_rows.get(name)
+            if row is None or not row["check"].isChecked():
+                continue
+            opacity = row["slider"].value() / 100.0
+            if overlay["kind"] == "atlas":
+                regions = self._checked_regions(name)
+                if regions:
+                    layers.append((overlay, opacity, regions))
+            else:
+                layers.append((overlay, opacity, None))
+        return layers
 
     def _overlay_token(self):
-        overlay = self._current_overlay()
-        if overlay is None:
-            return ("none",)
-        if overlay["kind"] == "atlas":
-            region = self._active_region()
-            return ("atlas", overlay["name"], None if region is None else region["id"])
-        return ("image", overlay["name"])
+        parts = [self.contrast_slider.value()]
+        for name, overlay in self.overlay_sets.items():
+            row = self.layer_rows.get(name)
+            if row is None or not row["check"].isChecked():
+                parts.append((name, False))
+                continue
+            if overlay["kind"] == "atlas":
+                parts.append((name, True, tuple(region["id"] for region in self._checked_regions(name))))
+            else:
+                parts.append((name, True))
+        return tuple(parts)
+
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+            elif item.layout() is not None:
+                self._clear_layout(item.layout())
 
     def _fill_overlays(self):
-        current = self.overlay.currentText()
-        self.overlay.blockSignals(True)
-        self.overlay.clear()
-        self.overlay.addItem("None")
-        for name in self.overlay_sets:
-            self.overlay.addItem(name)
-        if current in self.overlay_sets or current == "None":
-            self.overlay.setCurrentText(current)
-        self.overlay.blockSignals(False)
-        self._fill_regions()
+        from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QSlider
 
-    def _fill_regions(self):
-        overlay = self._current_overlay()
-        self.region.blockSignals(True)
-        self.region.clear()
-        if overlay is None or overlay["kind"] != "atlas":
-            self.region.setEnabled(False)
-            self.region.blockSignals(False)
-            return
-        self.region.setEnabled(True)
-        for region in overlay["regions"]:
-            self.region.addItem(region["name"])
-        self.region.blockSignals(False)
+        self._clear_layout(self.layers_layout)
+        self.layer_rows = {}
+        for name, overlay in self.overlay_sets.items():
+            row = QHBoxLayout()
+            check = QCheckBox(name)
+            check.toggled.connect(self._layer_toggled)
+            slider = QSlider(self._Qt.Orientation.Horizontal)
+            slider.setRange(0, 100)
+            slider.setValue(45)
+            slider.valueChanged.connect(self._opacity_changed)
+            row.addWidget(check)
+            row.addWidget(slider, stretch=1)
+            self.layers_layout.addLayout(row)
+            regions = None
+            if overlay["kind"] == "atlas":
+                regions = QListWidget()
+                regions.setMaximumHeight(96)
+                regions.blockSignals(True)
+                for region in overlay["regions"]:
+                    item = QListWidgetItem(region["name"])
+                    item.setFlags(item.flags() | self._Qt.ItemFlag.ItemIsUserCheckable)
+                    item.setCheckState(self._Qt.CheckState.Unchecked)
+                    regions.addItem(item)
+                regions.blockSignals(False)
+                regions.itemChanged.connect(self._region_toggled)
+                regions.itemClicked.connect(self._region_clicked)
+                self.layers_layout.addWidget(regions)
+            self.layer_rows[name] = {"check": check, "slider": slider, "regions": regions}
+        self.layers_layout.addStretch(1)
 
-    def _overlay_changed(self, _text):
-        self._fill_regions()
+    def _layer_toggled(self):
         self._sig.clear()
-        region = self._active_region()
-        if region is not None and self.data is not None:
-            self.selection = region["ijk"]
         self._draw()
 
-    def _region_changed(self, name):
-        overlay = self._current_overlay()
-        if overlay is None or overlay["kind"] != "atlas" or self.data is None:
+    def _opacity_changed(self):
+        if self.data is None:
             return
-        for region in overlay["regions"]:
-            if region["name"] == name:
-                self.selection = region["ijk"]
+        for plotter in self.views.values():
+            self._apply_opacity(plotter)
+            plotter.render()
+
+    def _apply_opacity(self, plotter):
+        for name, row in self.layer_rows.items():
+            stem = self._stem(name)
+            opacity = row["slider"].value() / 100.0
+            for actor_name, actor in list(plotter.actors.items()):
+                if actor_name.startswith(f"ov_{stem}"):
+                    actor.GetProperty().SetOpacity(opacity)
+
+    def _region_toggled(self, _item):
+        if self._suspend or self.data is None:
+            return
+        self._sig.clear()
+        self._draw()
+
+    def _region_clicked(self, item):
+        overlay = None
+        for name, row in self.layer_rows.items():
+            if row.get("regions") is item.listWidget() and name in self.overlay_sets:
+                overlay = self.overlay_sets[name]
                 break
-        self._sig.clear()
-        self._draw()
+        if overlay is None:
+            return
+        for region in overlay["regions"]:
+            if region["name"] == item.text():
+                self.selection = region["ijk"]
+                row = self.layer_rows[overlay["name"]]
+                if not row["check"].isChecked():
+                    row["check"].setChecked(True)
+                self._sig.clear()
+                self._draw()
+                self.status.setText(f"Crosshair at the center of {region['name']}.")
+                return
 
     def _image_sig(self, kind):
         i, j, k = self.selection
@@ -1159,53 +1250,46 @@ class PlannerWindow:
             return volume[:, j, :]
         return volume[:, :, k]
 
-    def _color_labels(self, plotter, mesh, region, actor):
+    def _color_labels(self, plotter, mesh, regions, actor, opacity):
         labels = np.rint(np.asarray(mesh.point_data["label"])).astype(np.int32)
         rgba = np.zeros((labels.size, 4), dtype=np.uint8)
-        hit = labels == int(region["id"])
-        rgba[hit, 0], rgba[hit, 1], rgba[hit, 2] = region["color"]
-        rgba[hit, 3] = 160
+        for region in regions:
+            hit = labels == int(region["id"])
+            rgba[hit, 0], rgba[hit, 1], rgba[hit, 2] = region["color"]
+            rgba[hit, 3] = 255
         mesh.point_data["RGBA"] = rgba
         plotter.add_mesh(
-            mesh, scalars="RGBA", rgba=True, lighting=False,
+            mesh, scalars="RGBA", rgba=True, opacity=opacity, lighting=False,
             show_scalar_bar=False, name=actor,
         )
 
-    def _paint_plane(self, plotter, kind, actor):
-        overlay = self._current_overlay()
-        if overlay is None:
-            return
+    def _paint_plane(self, plotter, kind, suffix):
         _image, origin, du, dv, _normal = self._slices()[kind]
-        plane = self._plane_array(kind, overlay["data"])
-        if overlay["kind"] == "image":
-            mesh = slice_mesh(plane, origin, du, dv, scalar="overlay")
-            plotter.add_mesh(
-                mesh, scalars="overlay", cmap="gray", clim=overlay["clim"], opacity=0.45,
-                show_scalar_bar=False, lighting=False, name=actor,
-            )
-            return
-        region = self._active_region()
-        if region is None:
-            return
-        mesh = slice_mesh(plane.astype(np.float32), origin, du, dv, scalar="label")
-        self._color_labels(plotter, mesh, region, actor)
+        for overlay, opacity, regions in self._active_layers():
+            actor = f"ov_{self._stem(overlay['name'])}_{suffix}"
+            plane = self._plane_array(kind, overlay["data"])
+            if overlay["kind"] == "image":
+                mesh = slice_mesh(plane, origin, du, dv, scalar="overlay")
+                plotter.add_mesh(
+                    mesh, scalars="overlay", cmap="gray", clim=self._window(overlay["clim"]),
+                    opacity=opacity, show_scalar_bar=False, lighting=False, name=actor,
+                )
+            elif regions:
+                mesh = slice_mesh(plane.astype(np.float32), origin, du, dv, scalar="label")
+                self._color_labels(plotter, mesh, regions, actor, opacity)
 
-    def _paint_oblique(self, plotter, origin, du, dv, actor):
-        overlay = self._current_overlay()
-        if overlay is None:
-            return
-        if overlay["kind"] == "image":
-            mesh = self._oblique_mesh(origin, du, dv, volume=overlay["data"], order=1, scalar="overlay")
-            plotter.add_mesh(
-                mesh, scalars="overlay", cmap="gray", clim=overlay["clim"], opacity=0.45,
-                show_scalar_bar=False, lighting=False, name=actor,
-            )
-            return
-        region = self._active_region()
-        if region is None:
-            return
-        mesh = self._oblique_mesh(origin, du, dv, volume=overlay["data"], order=0, scalar="label")
-        self._color_labels(plotter, mesh, region, actor)
+    def _paint_oblique(self, plotter, origin, du, dv, suffix):
+        for overlay, opacity, regions in self._active_layers():
+            actor = f"ov_{self._stem(overlay['name'])}_{suffix}"
+            if overlay["kind"] == "image":
+                mesh = self._oblique_mesh(origin, du, dv, volume=overlay["data"], order=1, scalar="overlay")
+                plotter.add_mesh(
+                    mesh, scalars="overlay", cmap="gray", clim=self._window(overlay["clim"]),
+                    opacity=opacity, show_scalar_bar=False, lighting=False, name=actor,
+                )
+            elif regions:
+                mesh = self._oblique_mesh(origin, du, dv, volume=overlay["data"], order=0, scalar="label")
+                self._color_labels(plotter, mesh, regions, actor, opacity)
 
     def _drop(self, plotter, names):
         for name in names:
@@ -1255,7 +1339,8 @@ class PlannerWindow:
         kind = self._kind(self.modes[key].currentText())
         sig = self._image_sig(kind)
         if self._sig.get(key) != sig:
-            self._drop(plotter, ("img", "img_ax", "img_sag", "img_cor", "ov", "ov_ax", "ov_sag", "ov_cor", "skin"))
+            names = [name for name in list(plotter.actors) if name == "skin" or name.startswith("img") or name.startswith("ov_")]
+            self._drop(plotter, names)
             self._sig[key] = sig
             self._style(plotter, kind)
             if kind == "scalp":
@@ -1276,14 +1361,14 @@ class PlannerWindow:
                         scalars="T1", cmap="gray", clim=self.clim,
                         show_scalar_bar=False, lighting=False, name="img",
                     )
-                    self._paint_oblique(plotter, origin, du, dv, "ov")
+                    self._paint_oblique(plotter, origin, du, dv, "beam")
                 else:
                     self._add_slice(plotter, specs[kind], "img")
-                    self._paint_plane(plotter, kind, "ov")
+                    self._paint_plane(plotter, kind, "slice")
                 if kind == "mpr":
-                    self._paint_plane(plotter, "transverse", "ov_ax")
-                    self._paint_plane(plotter, "sagittal", "ov_sag")
-                    self._paint_plane(plotter, "coronal", "ov_cor")
+                    self._paint_plane(plotter, "transverse", "ax")
+                    self._paint_plane(plotter, "sagittal", "sag")
+                    self._paint_plane(plotter, "coronal", "cor")
         self._drop(plotter, ("target", "cross", "beam", "tx", "hx", "hy", "hz", "contact", "arrow", "mark", "label"))
         self._add_overlays(plotter, kind)
         if kind in self._LOCKED or key not in self._aimed:
