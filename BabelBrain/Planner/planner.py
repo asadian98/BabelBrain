@@ -488,7 +488,7 @@ class PlannerWindow:
         self.coord_label = QLabel("Coordinate system")
         self.coord_label.setWordWrap(True)
         right.addWidget(self.coord_label)
-        self.origin_edits = self._xyz_block(right, "Crosshairs Origin")
+        self.origin_edits = self._xyz_block(right, "Crosshairs Origin", editable=True)
         self.offset_edits = self._xyz_block(right, "Crosshairs Offset")
         self.delta = QLabel("Transducer - target    —")
         self.delta.setWordWrap(True)
@@ -518,7 +518,7 @@ class PlannerWindow:
         plane.setAlignment(self._Qt.AlignmentFlag.AlignHCenter)
         return slider, (name, value, plane)
 
-    def _xyz_block(self, layout, title):
+    def _xyz_block(self, layout, title, editable=False):
         from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit
 
         layout.addWidget(QLabel(title))
@@ -527,7 +527,9 @@ class PlannerWindow:
             row = QHBoxLayout()
             row.addWidget(QLabel(axis))
             edit = QLineEdit("0.00")
-            edit.setReadOnly(True)
+            edit.setReadOnly(not editable)
+            if editable:
+                edit.editingFinished.connect(self._origin_edited)
             row.addWidget(edit)
             row.addWidget(QLabel("mm"))
             layout.addLayout(row)
@@ -845,12 +847,32 @@ class PlannerWindow:
         origin = ijk_to_world(self.affine, self.selection)
         delta = self._live_transducer() - origin
         for edit, value in zip(self.origin_edits, origin):
+            if edit.hasFocus() or edit.isModified():
+                continue
             edit.setText(f"{float(value):.2f}")
         for edit, value in zip(self.offset_edits, delta):
             edit.setText(f"{float(value):.2f}")
         self.delta.setText(
             "Offset from point (mm)\nX  {0:.2f}\nY  {1:.2f}\nZ  {2:.2f}".format(*delta)
         )
+
+    def _origin_edited(self):
+        if self.affine is None or self.data is None:
+            return
+        if not any(edit.isModified() for edit in self.origin_edits):
+            return
+        try:
+            world = [float(edit.text().strip()) for edit in self.origin_edits]
+        except ValueError:
+            for edit in self.origin_edits:
+                edit.setModified(False)
+            self._show_offset()
+            return
+        for edit in self.origin_edits:
+            edit.setModified(False)
+        self.selection = self._world_to_ijk(world)
+        self._draw()
+        self.status.setText("Crosshair moved to the typed origin.")
 
     def _draw(self):
         if self.data is None or self._suspend:
