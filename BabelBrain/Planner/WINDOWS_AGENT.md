@@ -28,11 +28,11 @@ No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested: c10c762
+- Commit tested: a151b3e
 - `--check`: not rerun, UI only
 - Sync files: not written
-- Launch: window open. Angle sliders keep the current offset. Only Bring to scalp meets the skin. Inline slices use the voxel spacing.
-- Change needed: none
+- Launch: window open. New adds one list entry at the crosshair. Kind is Target or Trajectory. The saved rotation matches Brainsight AP, Lat, and Twist.
+- Change needed: subject-space atlas overlay is the next slice
 
 
 
