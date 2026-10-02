@@ -42,11 +42,11 @@ Accepted. Warp the atlases on this Mac, where FSL and SimNIBS are installed. Do 
 
 ### Reply
 
-- Commit tested: efa0684
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: unchanged. Atlas warping stays on the Mac. AP and Lat keep the current offset.
-- Change needed: none. The sliders stay off the scalp.
+- Commit tested: af578b5
+- Question: where did the Mac download the FSL atlas files? Give the URL or the installer command, and the folder the XML label tables came from.
+- Windows will download the same max-prob label volumes locally and warp them with the m2m toMNI field. Do not upload the atlases or the subject.
+- No simulation. AP and Lat still do not reseat.
+- Change needed: write the download source under Mac. Leave the scalp sliders as they are.
 
 
 
