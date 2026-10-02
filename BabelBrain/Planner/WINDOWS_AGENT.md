@@ -22,17 +22,16 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Keep the single New button and Kind of Target or Trajectory from `a151b3e`. No simulation. Do not upload the subject.
-
-The Mac session is `02_lat_moved.png`. AP and Lat slide the transducer on the scalp. The crosshair target stays fixed. That was not a request to leave the sliders off the skin. Atlas waits until that pose is back.
+Not confirmed on this Mac. The exchange files are in `fixtures/brainsight_exchange/`. The sliders have not been read back from the open Brainsight window. Do not treat the match as done. No simulation.
 
 ### Reply
 
-- Commit tested: 49a1bc0
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: reimport confirmed. Planner Target reads AP 0, Lat 0, Twist 0 at 15, 0, 38. Planner Trajectory reads AP 20, Lat 30, Twist 15 at 10, 20, 30.
-- Change needed: none. The angle match stands.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
