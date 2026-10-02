@@ -266,7 +266,7 @@ def transducer_on_skin(target, skin, ap_deg, lat_deg, base_dir=None) -> np.ndarr
     return hit
 
 
-def slice_mesh(image, origin, du, dv):
+def slice_mesh(image, origin, du, dv, scalar="T1"):
     """World-space slice. An ImageData can stay edge-on when its direction is ignored."""
     import pyvista as pv
 
@@ -285,7 +285,7 @@ def slice_mesh(image, origin, du, dv):
     grid = pv.StructuredGrid()
     grid.points = pts
     grid.dimensions = (nc, nr, 1)
-    grid.point_data["T1"] = img.ravel(order="C")
+    grid.point_data[scalar] = img.ravel(order="C")
     return grid
 
 
@@ -295,6 +295,111 @@ def load_volume(t1_path: Path):
     img = nib.load(str(t1_path))
     data = np.asanyarray(img.dataobj, dtype=np.float32)
     return data, img.affine.astype(float)
+
+
+def _same_grid(affine, shape, reference_affine, reference_shape) -> bool:
+    return shape == reference_shape and np.allclose(affine, reference_affine, atol=1e-3)
+
+
+def _read_lut(path: Path) -> dict:
+    """Label id to (name, RGB). The last four numbers on a line are the color."""
+    found = {}
+    if path is None or not path.is_file():
+        return found
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = line.split()
+        if len(parts) < 6 or parts[0].startswith("#"):
+            continue
+        try:
+            label = int(float(parts[0]))
+            color = tuple(int(float(parts[index])) for index in range(-4, -1))
+        except ValueError:
+            continue
+        name = " ".join(parts[1:-4]).strip() or f"Label {label}"
+        if int(parts[-1]) == 0:
+            continue
+        found[label] = (name, color)
+    return found
+
+
+def _region_table(labels, affine, lut, fallback):
+    """One entry per label that actually appears, with its center voxel."""
+    present = np.unique(labels)
+    regions = []
+    for label in present:
+        label = int(label)
+        if label == 0:
+            continue
+        coords = np.argwhere(labels == label)
+        if coords.size == 0:
+            continue
+        center = coords.mean(axis=0)
+        ijk = tuple(int(round(float(v))) for v in center)
+        world = ijk_to_world(affine, ijk)
+        name, color = lut.get(label, (None, (255, 80, 40)))
+        if name is None:
+            name = fallback(label, world)
+        if name.lower() in {"background", "air-internal"}:
+            continue
+        regions.append({"id": label, "name": name, "color": color, "ijk": ijk})
+    seen = {}
+    for region in regions:
+        seen[region["name"]] = seen.get(region["name"], 0) + 1
+    for region in regions:
+        if seen[region["name"]] > 1:
+            region["name"] = f"{region['name']} {region['id']}"
+    regions.sort(key=lambda item: item["name"].lower())
+    return regions
+
+
+def discover_overlays(m2m: Path, reference) -> dict:
+    """T2, CT, and subject-space atlases that share the T1 grid. Missing files are skipped."""
+    data, affine = reference
+    overlays = {}
+
+    def take_image(name, candidates):
+        for path in candidates:
+            if not path.is_file():
+                continue
+            volume, vol_affine = load_volume(path)
+            if volume.ndim > 3:
+                volume = np.squeeze(volume)
+            if not _same_grid(vol_affine, volume.shape, affine, data.shape):
+                continue
+            positive = volume[np.isfinite(volume)]
+            clim = tuple(float(v) for v in np.percentile(positive, [1, 99])) if positive.size else (0.0, 1.0)
+            overlays[name] = {"kind": "image", "name": name, "data": volume, "clim": clim}
+            return
+
+    take_image("T2", [m2m / "T2_reg.nii.gz", m2m / "T2.nii.gz", m2m / "segmentation" / "T2_bias_corrected.nii.gz"])
+    take_image("CT", [m2m / "CT.nii.gz", m2m / "CT_reg.nii.gz", m2m / "ct.nii.gz"])
+
+    def take_atlas(name, path, lut_path, fallback):
+        if not path.is_file():
+            return
+        volume, vol_affine = load_volume(path)
+        if volume.ndim > 3:
+            volume = np.squeeze(volume)
+        if not _same_grid(vol_affine, volume.shape, affine, data.shape):
+            return
+        labels = np.rint(volume).astype(np.int16)
+        regions = _region_table(labels, affine, _read_lut(lut_path), fallback)
+        if regions:
+            overlays[name] = {"kind": "atlas", "name": name, "data": labels, "regions": regions}
+
+    take_atlas(
+        "Atlas",
+        m2m / "segmentation" / "labeling.nii.gz",
+        m2m / "segmentation" / "labeling_LUT.txt",
+        lambda label, _world: f"Label {label}",
+    )
+
+    def stn_name(label, world):
+        side = "right" if float(world[0]) >= 0.0 else "left"
+        return f"STN {side}"
+
+    take_atlas("STN", m2m / "STN_atlas_scanner.nii.gz", None, stn_name)
+    return overlays
 
 
 def main() -> None:
@@ -377,6 +482,7 @@ class PlannerWindow:
         self._frame_h = None
         self.offset_mm = 0.0
         self.clim = (0.0, 1.0)
+        self.overlay_sets = {}
         self._suspend = False
         self._sig = {}
         self._aimed = set()
@@ -400,6 +506,15 @@ class PlannerWindow:
         self.path_label = QLabel("No project")
         self.path_label.setWordWrap(True)
         left.addWidget(self.path_label)
+        left.addWidget(QLabel("Overlay"))
+        self.overlay = QComboBox()
+        self.overlay.addItem("None")
+        self.overlay.currentTextChanged.connect(self._overlay_changed)
+        left.addWidget(self.overlay)
+        self.region = QComboBox()
+        self.region.setEnabled(False)
+        self.region.currentTextChanged.connect(self._region_changed)
+        left.addWidget(self.region)
         left.addWidget(QLabel("Name"))
         self.names = QListWidget()
         self.names.currentRowChanged.connect(self._select_target)
@@ -612,6 +727,8 @@ class PlannerWindow:
         self.selection = tuple(int(n // 2) for n in data.shape)
         self.path_label.setText(str(m2m))
         self.coord_label.setText(coord)
+        self.overlay_sets = discover_overlays(m2m, (data, affine))
+        self._fill_overlays()
         self._frame_h = None
         self._set_angles(0.0, 0.0, 0.0)
         self.offset_mm = 0.0
@@ -881,19 +998,89 @@ class PlannerWindow:
         for key, plotter in self.views.items():
             self._draw_one(key, plotter)
 
+    def _current_overlay(self):
+        name = self.overlay.currentText() if hasattr(self, "overlay") else "None"
+        if name in (None, "", "None"):
+            return None
+        return self.overlay_sets.get(name)
+
+    def _active_region(self):
+        overlay = self._current_overlay()
+        if overlay is None or overlay["kind"] != "atlas":
+            return None
+        chosen = self.region.currentText()
+        for region in overlay["regions"]:
+            if region["name"] == chosen:
+                return region
+        return overlay["regions"][0] if overlay["regions"] else None
+
+    def _overlay_token(self):
+        overlay = self._current_overlay()
+        if overlay is None:
+            return ("none",)
+        if overlay["kind"] == "atlas":
+            region = self._active_region()
+            return ("atlas", overlay["name"], None if region is None else region["id"])
+        return ("image", overlay["name"])
+
+    def _fill_overlays(self):
+        current = self.overlay.currentText()
+        self.overlay.blockSignals(True)
+        self.overlay.clear()
+        self.overlay.addItem("None")
+        for name in self.overlay_sets:
+            self.overlay.addItem(name)
+        if current in self.overlay_sets or current == "None":
+            self.overlay.setCurrentText(current)
+        self.overlay.blockSignals(False)
+        self._fill_regions()
+
+    def _fill_regions(self):
+        overlay = self._current_overlay()
+        self.region.blockSignals(True)
+        self.region.clear()
+        if overlay is None or overlay["kind"] != "atlas":
+            self.region.setEnabled(False)
+            self.region.blockSignals(False)
+            return
+        self.region.setEnabled(True)
+        for region in overlay["regions"]:
+            self.region.addItem(region["name"])
+        self.region.blockSignals(False)
+
+    def _overlay_changed(self, _text):
+        self._fill_regions()
+        self._sig.clear()
+        region = self._active_region()
+        if region is not None and self.data is not None:
+            self.selection = region["ijk"]
+        self._draw()
+
+    def _region_changed(self, name):
+        overlay = self._current_overlay()
+        if overlay is None or overlay["kind"] != "atlas" or self.data is None:
+            return
+        for region in overlay["regions"]:
+            if region["name"] == name:
+                self.selection = region["ijk"]
+                break
+        self._sig.clear()
+        self._draw()
+
     def _image_sig(self, kind):
         i, j, k = self.selection
+        token = self._overlay_token()
         if kind == "scalp":
-            return ("scalp",)
+            return ("scalp", token)
         if kind == "mpr":
-            return ("mpr", i, j, k)
+            return ("mpr", i, j, k, token)
         if kind in ("inline", "inline90", "perpendicular"):
-            return (kind, i, j, k, round(self.ap_deg, 1), round(self.lat_deg, 1), round(self.twist_deg, 1))
+            return (kind, i, j, k, round(self.ap_deg, 1), round(self.lat_deg, 1), round(self.twist_deg, 1), token)
         if kind == "sagittal":
-            return ("sagittal", i)
+            return ("sagittal", i, token)
         if kind == "coronal":
-            return ("coronal", j)
-        return ("transverse", k)
+            return ("coronal", j, token)
+        return ("transverse", k, token)
 
     def _slices(self):
         i, j, k = self.selection
@@ -931,10 +1118,11 @@ class PlannerWindow:
             return du, dv, normal, origin
         return self._beam_axes(kind)
 
-    def _oblique_mesh(self, origin, du, dv):
+    def _oblique_mesh(self, origin, du, dv, volume=None, order=1, scalar="T1"):
         import pyvista as pv
         from scipy.ndimage import map_coordinates
 
+        source = self.data if volume is None else volume
         spacing = float(min(np.linalg.norm(self.affine[:3, axis]) for axis in range(3)))
         spacing = max(spacing, 0.5)
         span = 220.0
@@ -950,9 +1138,9 @@ class PlannerWindow:
         hom = np.concatenate([world, np.ones(uu.shape + (1,))], axis=-1)
         ijk = hom @ inv.T
         values = map_coordinates(
-            self.data,
+            source,
             [ijk[..., 0], ijk[..., 1], ijk[..., 2]],
-            order=1,
+            order=order,
             mode="constant",
             cval=0.0,
             prefilter=False,
@@ -960,8 +1148,64 @@ class PlannerWindow:
         grid = pv.StructuredGrid()
         grid.points = np.ascontiguousarray(world.reshape(-1, 3))
         grid.dimensions = (count, count, 1)
-        grid.point_data["T1"] = np.ascontiguousarray(values).ravel(order="C")
+        grid.point_data[scalar] = np.ascontiguousarray(values).ravel(order="C")
         return grid
+
+    def _plane_array(self, kind, volume):
+        i, j, k = self.selection
+        if kind == "sagittal":
+            return volume[i, :, :]
+        if kind == "coronal":
+            return volume[:, j, :]
+        return volume[:, :, k]
+
+    def _color_labels(self, plotter, mesh, region, actor):
+        labels = np.rint(np.asarray(mesh.point_data["label"])).astype(np.int32)
+        rgba = np.zeros((labels.size, 4), dtype=np.uint8)
+        hit = labels == int(region["id"])
+        rgba[hit, 0], rgba[hit, 1], rgba[hit, 2] = region["color"]
+        rgba[hit, 3] = 160
+        mesh.point_data["RGBA"] = rgba
+        plotter.add_mesh(
+            mesh, scalars="RGBA", rgba=True, lighting=False,
+            show_scalar_bar=False, name=actor,
+        )
+
+    def _paint_plane(self, plotter, kind, actor):
+        overlay = self._current_overlay()
+        if overlay is None:
+            return
+        _image, origin, du, dv, _normal = self._slices()[kind]
+        plane = self._plane_array(kind, overlay["data"])
+        if overlay["kind"] == "image":
+            mesh = slice_mesh(plane, origin, du, dv, scalar="overlay")
+            plotter.add_mesh(
+                mesh, scalars="overlay", cmap="gray", clim=overlay["clim"], opacity=0.45,
+                show_scalar_bar=False, lighting=False, name=actor,
+            )
+            return
+        region = self._active_region()
+        if region is None:
+            return
+        mesh = slice_mesh(plane.astype(np.float32), origin, du, dv, scalar="label")
+        self._color_labels(plotter, mesh, region, actor)
+
+    def _paint_oblique(self, plotter, origin, du, dv, actor):
+        overlay = self._current_overlay()
+        if overlay is None:
+            return
+        if overlay["kind"] == "image":
+            mesh = self._oblique_mesh(origin, du, dv, volume=overlay["data"], order=1, scalar="overlay")
+            plotter.add_mesh(
+                mesh, scalars="overlay", cmap="gray", clim=overlay["clim"], opacity=0.45,
+                show_scalar_bar=False, lighting=False, name=actor,
+            )
+            return
+        region = self._active_region()
+        if region is None:
+            return
+        mesh = self._oblique_mesh(origin, du, dv, volume=overlay["data"], order=0, scalar="label")
+        self._color_labels(plotter, mesh, region, actor)
 
     def _drop(self, plotter, names):
         for name in names:
@@ -1011,7 +1255,7 @@ class PlannerWindow:
         kind = self._kind(self.modes[key].currentText())
         sig = self._image_sig(kind)
         if self._sig.get(key) != sig:
-            self._drop(plotter, ("img", "img_ax", "img_sag", "img_cor", "skin"))
+            self._drop(plotter, ("img", "img_ax", "img_sag", "img_cor", "ov", "ov_ax", "ov_sag", "ov_cor", "skin"))
             self._sig[key] = sig
             self._style(plotter, kind)
             if kind == "scalp":
@@ -1032,8 +1276,14 @@ class PlannerWindow:
                         scalars="T1", cmap="gray", clim=self.clim,
                         show_scalar_bar=False, lighting=False, name="img",
                     )
+                    self._paint_oblique(plotter, origin, du, dv, "ov")
                 else:
                     self._add_slice(plotter, specs[kind], "img")
+                    self._paint_plane(plotter, kind, "ov")
+                if kind == "mpr":
+                    self._paint_plane(plotter, "transverse", "ov_ax")
+                    self._paint_plane(plotter, "sagittal", "ov_sag")
+                    self._paint_plane(plotter, "coronal", "ov_cor")
         self._drop(plotter, ("target", "cross", "beam", "tx", "hx", "hy", "hz", "contact", "arrow", "mark", "label"))
         self._add_overlays(plotter, kind)
         if kind in self._LOCKED or key not in self._aimed:
