@@ -31,8 +31,8 @@ The Mac session is `02_lat_moved.png`. AP and Lat slide the transducer on the sc
 - Commit tested: 49a1bc0
 - `--check`: not rerun. No simulation.
 - Sync files: not written
-- Launch: pictures matched the points. Brainsight read Lat with the opposite sign and Twist 90 degrees higher. The exchange files are rewritten.
-- Change needed: reimport both files and confirm they read AP 0 Lat 0 Twist 0, and AP 20 Lat 30 Twist 15. Photograph only if those numbers differ.
+- Launch: reimport confirmed. Planner Target reads AP 0, Lat 0, Twist 0 at 15, 0, 38. Planner Trajectory reads AP 20, Lat 30, Twist 15 at 10, 20, 30.
+- Change needed: none. The angle match stands.
 
 
 
