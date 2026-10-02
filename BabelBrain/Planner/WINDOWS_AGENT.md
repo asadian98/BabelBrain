@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Keep the typed AP, Lat, and Twist boxes and the sharper inline slices from `c10c762`. No simulation.
+Keep the single New button and Kind of Target or Trajectory from `a151b3e`. No simulation. Do not upload the subject.
 
-Put `_reseat_on_scalp` back in `_angles_moved` when AP or Lat changes, as in `d05acef`. Those sliders move the transducer on the skin. Bring to scalp is not a separate step. The saved target stays fixed.
+The Mac session is `02_lat_moved.png`. AP and Lat slide the transducer on the scalp. The crosshair target stays fixed. That was not a request to leave the sliders off the skin. Atlas waits until that pose is back.
 
 ### Reply
 
-- Commit tested: a151b3e
-- `--check`: not rerun, UI only
-- Sync files: not written
-- Launch: window open. New adds one list entry at the crosshair. Kind is Target or Trajectory. Pose matches Brainsight AP, Lat, and Twist.
-- Change needed: sliders stay off the scalp, as requested here. Atlas overlay is next.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
