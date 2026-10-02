@@ -1044,6 +1044,17 @@ class PlannerWindow:
         span = max(np.linalg.norm(du) * image.shape[1], np.linalg.norm(dv) * image.shape[0])
         self._aim(plotter, focal, normal, 0.5 * float(span), True)
 
+    def _name_label(self, plotter, point, text):
+        """Name sits on the target point. The offset mark is the transducer, and it stays unlabeled."""
+        try:
+            plotter.add_point_labels(
+                [np.asarray(point, dtype=float)], [text], name="label", font_size=14,
+                text_color="#00e5ff", show_points=False, shape_opacity=0,
+                reset_camera=False, render=False,
+            )
+        except Exception:
+            pass
+
     def _add_overlays(self, plotter, kind):
         import pyvista as pv
 
@@ -1061,20 +1072,15 @@ class PlannerWindow:
                 plotter.add_mesh(pv.Line(selected, tip), color="#00e5ff", line_width=2, name="arrow")
                 plotter.add_mesh(pv.Line(tip - du * 6, tip + du * 6), color="#ff5a5a", line_width=3, name="mark")
                 plotter.add_mesh(pv.Line(tip - dv * 6, tip + dv * 6), color="#ff5a5a", line_width=3, name="contact")
-                item = self._current()
-                if item is not None:
-                    try:
-                        plotter.add_point_labels(
-                            [tip], [item["name"]], name="label", font_size=14,
-                            text_color="#00e5ff", show_points=False, shape_opacity=0,
-                            reset_camera=False, render=False,
-                        )
-                    except Exception:
-                        pass
+            item = self._current()
+            if item is not None:
+                self._name_label(plotter, self._target_world(item), item["name"])
             return
         item = self._current()
         if item is not None:
-            plotter.add_mesh(pv.Sphere(radius=2.0, center=self._target_world(item)), color="red", name="target")
+            center = self._target_world(item)
+            plotter.add_mesh(pv.Sphere(radius=2.0, center=center), color="red", name="target")
+            self._name_label(plotter, center, item["name"])
         if float(self.offset_mm) > 1.0:
             plotter.add_mesh(pv.Line(selected, placed), color="#00e5ff", line_width=3, name="beam")
             if self.tx_mesh is not None:
