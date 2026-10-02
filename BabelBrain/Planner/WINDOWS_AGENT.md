@@ -28,11 +28,11 @@ Put `_reseat_on_scalp` back in `_angles_moved` when AP or Lat changes, as in `d0
 
 ### Reply
 
-- Commit tested: a151b3e
-- `--check`: not rerun, UI only
+- Commit tested: b2eab8e
+- `--check`: round trip of both exchange files passed. No simulation.
 - Sync files: not written
-- Launch: window open. New adds one list entry at the crosshair. Kind is Target or Trajectory. Pose matches Brainsight AP, Lat, and Twist.
-- Change needed: sliders stay off the scalp, as requested here. Atlas overlay is next.
+- Launch: window open. The name is drawn on the target point. Offset mark stays unlabeled.
+- Change needed: import fixtures/brainsight_exchange/Planner_Target.txt (XYZ 15, 0, 38 mm, AP 0, Lat 0, Twist 0) and Planner_Trajectory.txt (XYZ 10, 20, 30 mm, AP 20, Lat 30, Twist 15), both NIfTI:S:Scanner. Photograph sagittal and inline in Brainsight and commit the pictures on this branch.
 
 
 
