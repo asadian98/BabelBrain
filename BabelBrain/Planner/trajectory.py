@@ -61,14 +61,15 @@ def pose_matrix(target_mm, transducer_mm) -> np.ndarray:
 
 
 def brainsight_matrix(target_mm, ap_deg, lat_deg, twist_deg) -> np.ndarray:
-    """Version-14 pose. Location is the crosshair. AP, Lat, and Twist are the rotation.
+    """Version-14 pose. Location is the crosshair. Angles are what Brainsight shows.
 
-    Checked against Brainsight 2.5 exports: straight up is AP 0, Lat 0, Twist 0
-    with columns (-Y, +X, +Z). Lat rotates about Y, AP about X, Twist about the beam.
+    Import of a straight-up pose showed Twist 90, and Lat 30 showed as -30.
+    Brainsight's Lat is the opposite direction, and its Twist 0 is 90 degrees
+    from the upright (-Y, +X, +Z) frame. AP matches as written.
     """
     ap = np.deg2rad(float(ap_deg))
-    lat = np.deg2rad(float(lat_deg))
-    twist = np.deg2rad(float(twist_deg))
+    lat = np.deg2rad(-float(lat_deg))
+    twist = np.deg2rad(float(twist_deg) - 90.0)
     ca, sa = np.cos(ap), np.sin(ap)
     cl, sl = np.cos(lat), np.sin(lat)
     ry = np.array([[cl, 0.0, sl], [0.0, 1.0, 0.0], [-sl, 0.0, cl]])

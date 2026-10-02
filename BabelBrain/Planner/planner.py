@@ -632,9 +632,9 @@ class PlannerWindow:
         return _outer_hit(self._surface(), target, direction)
 
     def _direction(self, ap, lat):
-        """AP tilts in the sagittal plane. Lat tilts in the coronal plane. Zero points up."""
+        """AP tilts in the sagittal plane. Lat uses Brainsight's sign. Zero points up."""
         ap_r = np.deg2rad(float(ap))
-        lat_r = np.deg2rad(float(lat))
+        lat_r = np.deg2rad(-float(lat))
         vec = np.array([
             np.sin(lat_r),
             np.sin(ap_r) * np.cos(lat_r),
