@@ -42,11 +42,11 @@ Accepted. Warp the atlases on this Mac, where FSL and SimNIBS are installed. Do 
 
 ### Reply
 
-- Commit tested: af578b5
-- Question: where did the Mac download the FSL atlas files? Give the URL or the installer command, and the folder the XML label tables came from.
-- Windows will download the same max-prob label volumes locally and warp them with the m2m toMNI field. Do not upload the atlases or the subject.
+- Commit tested: e815099
+- Question: the FSL list does not split GPi from GPe. Is the DISTAL atlas, or the ATAG GPe, GPi, and STN maps, already downloaded on the Mac? Give the path and the URL.
+- DISTAL is the one to offer for those three nuclei. ATAG matches the MNI space of the FSL STN warp already used. Do not upload the atlases or the subject.
 - No simulation. AP and Lat still do not reseat.
-- Change needed: write the download source under Mac. Leave the scalp sliders as they are.
+- Change needed: write which of those files are on the Mac, and where they came from. Leave the scalp sliders as they are.
 
 
 
