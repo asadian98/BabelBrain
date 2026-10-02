@@ -23,6 +23,7 @@ if str(_BABEL) not in sys.path:
 
 from ConvMatTransform import GetBrainSightHeader, ReadTrajectoryBrainsight
 from Planner.trajectory import (
+    brainsight_matrix,
     pose_matrix,
     trajectory_filename,
     write_sync,
@@ -288,16 +289,6 @@ def slice_mesh(image, origin, du, dv):
     return grid
 
 
-def apply_twist(mat: np.ndarray, degrees: float) -> np.ndarray:
-    out = np.array(mat, dtype=float, copy=True)
-    theta = np.deg2rad(degrees)
-    cos, sin = np.cos(theta), np.sin(theta)
-    x_col, y_col = out[:3, 0].copy(), out[:3, 1].copy()
-    out[:3, 0] = cos * x_col + sin * y_col
-    out[:3, 1] = -sin * x_col + cos * y_col
-    return out
-
-
 def load_volume(t1_path: Path):
     import nibabel as nib
 
@@ -351,7 +342,6 @@ class PlannerWindow:
             QLabel,
             QLineEdit,
             QListWidget,
-            QMenu,
             QMessageBox,
             QPushButton,
             QSlider,
@@ -414,37 +404,24 @@ class PlannerWindow:
         self.names = QListWidget()
         self.names.currentRowChanged.connect(self._select_target)
         left.addWidget(self.names, stretch=1)
-        new_btn = QPushButton("New...")
-        menu = QMenu(new_btn)
-        at_origin = menu.addMenu("At Crosshairs Origin")
-        at_offset = menu.addMenu("At Crosshairs Offset")
-        at_origin.addAction("Marker", lambda: self._new_at("marker", "origin"))
-        at_origin.addAction("Trajectory", lambda: self._new_at("trajectory", "origin"))
-        at_offset.addAction("Marker", lambda: self._new_at("marker", "offset"))
-        at_offset.addAction("Trajectory", lambda: self._new_at("trajectory", "offset"))
-        for parent in (at_origin, at_offset):
-            parent.addAction("Rectangular Grid").setEnabled(False)
-            parent.addAction("Circular Grid").setEnabled(False)
-        menu.addSeparator()
-        menu.addAction("Folder").setEnabled(False)
-        menu.addAction("Import from Cap Layout...").setEnabled(False)
-        menu.addAction("Import from File...").setEnabled(False)
-        new_btn.setMenu(menu)
+        new_btn = QPushButton("New")
+        new_btn.clicked.connect(self._new_entry)
         left.addWidget(new_btn)
         self.name = QLineEdit("Target")
         self.name.editingFinished.connect(self._rename)
         left.addWidget(self.name)
-        left.addWidget(QLabel("Kind: Trajectory"))
-        save = QPushButton("Save selection as target")
-        save.clicked.connect(self._set_as_target)
-        left.addWidget(save)
+        left.addWidget(QLabel("Kind"))
+        self.kind = QComboBox()
+        self.kind.addItems(["Target", "Trajectory"])
+        self.kind.currentTextChanged.connect(self._kind_changed)
+        left.addWidget(self.kind)
         scalp_btn = QPushButton("Bring transducer to scalp")
         scalp_btn.clicked.connect(self._bring_to_scalp)
         left.addWidget(scalp_btn)
         go = QPushButton("Compute Simulation")
         go.clicked.connect(self._compute)
         left.addWidget(go)
-        self.status = QLabel("Click a 2D image to choose a point. It is not a target until you save it.")
+        self.status = QLabel("Click a 2D image to move the crosshair. New adds it to the list.")
         self.status.setWordWrap(True)
         left.addWidget(self.status)
 
@@ -500,13 +477,6 @@ class PlannerWindow:
         self.offset_slider.valueChanged.connect(self._offset_moved)
         right.addWidget(self.offset_slider)
         right.addWidget(self.offset_read)
-        right.addWidget(QLabel("Optimize traj. using"))
-        self.entry_use = QComboBox()
-        self.entry_use.addItems(["Bone (outer skull)", "Scalp"])
-        right.addWidget(self.entry_use)
-        opt = QPushButton("Bring to scalp")
-        opt.clicked.connect(self._bring_to_scalp)
-        right.addWidget(opt)
         nudge = QHBoxLayout()
         up = QPushButton("Nudge origin up")
         up.clicked.connect(lambda: self._nudge(1))
@@ -640,20 +610,18 @@ class PlannerWindow:
         self.selection = tuple(int(n // 2) for n in data.shape)
         self.path_label.setText(str(m2m))
         self.coord_label.setText(coord)
-        if bone is None:
-            self.entry_use.setCurrentText("Scalp")
         self._frame_h = None
         self._set_angles(0.0, 0.0, 0.0)
         self.offset_mm = 0.0
         self._set_offset_slider(0.0)
-        self.status.setText("Click a 2D image to choose a point. It is not a target until you save it.")
+        self.status.setText("Click a 2D image to move the crosshair. New adds it to the list.")
         QApplication.processEvents()
         self._bring_to_scalp()
 
     def _surface(self):
-        if self.entry_use.currentText().startswith("Bone") and self.bone is not None:
-            return self.bone
-        return self.skin
+        if self.skin is not None:
+            return self.skin
+        return self.bone
 
     def _seat(self, target, direction):
         """Face on the outer scalp, along a direction chosen on the skull."""
@@ -733,12 +701,15 @@ class PlannerWindow:
         if item is None:
             return
         self.name.setText(item["name"])
+        self.kind.blockSignals(True)
+        self.kind.setCurrentText("Trajectory" if item.get("kind") == "trajectory" else "Target")
+        self.kind.blockSignals(False)
         self.selection = tuple(int(v) for v in item["ijk"])
         self._set_angles(item["ap"], item["lat"], item["twist"])
         self.offset_mm = float(item.get("distance", self.offset_mm))
         self._set_offset_slider(self.offset_mm)
         self._draw()
-        self.status.setText("Showing the saved target. Click a 2D image to choose a different point.")
+        self.status.setText("Showing this list entry. The crosshair is at its point.")
 
     def _mode_changed(self, key):
         self._sig.pop(key, None)
@@ -839,35 +810,22 @@ class PlannerWindow:
             slider.blockSignals(False)
             read[1].setText(f"{float(value):.1f}")
 
-    def _new_at(self, kind, where):
+    def _new_entry(self):
         if self.selection is None or self.data is None:
+            self.status.setText("Click a 2D image first. New uses the crosshair.")
             return
-        ijk = self.selection
-        if where == "offset":
-            ijk = self._world_to_ijk(self._live_transducer())
-        name = self.name.text().strip() or ("Marker" if kind == "marker" else f"Target {len(self.targets) + 1}")
-        self._append(name, ijk, kind)
-        self.status.setText("Saved this point as a target.")
+        kind = "trajectory" if self.kind.currentText() == "Trajectory" else "target"
+        label = "Trajectory" if kind == "trajectory" else "Target"
+        number = 1 + sum(1 for item in self.targets if item.get("kind") == kind)
+        self._append(f"{label} {number}", self.selection, kind)
+        self.status.setText(f"Added {label} {number} at the crosshair.")
 
-    def _set_as_target(self):
-        if self.selection is None:
-            return
+    def _kind_changed(self, text):
         item = self._current()
         if item is None:
-            name = self.name.text().strip() or f"Target {len(self.targets) + 1}"
-            self._append(name, self.selection, "trajectory")
-        else:
-            item["ijk"] = tuple(int(v) for v in self.selection)
-            item["ap"] = self.ap_deg
-            item["lat"] = self.lat_deg
-            item["twist"] = self.twist_deg
-            item["distance"] = self.offset_mm
-            item["kind"] = "trajectory"
-            item["name"] = self.name.text().strip() or item["name"]
-            if self.names.currentItem() is not None:
-                self.names.currentItem().setText(item["name"])
-            self._draw()
-        self.status.setText("Saved this point as the target. The 2D click is still only a selection.")
+            return
+        item["kind"] = "trajectory" if text == "Trajectory" else "target"
+        self._draw()
 
     def _bring_to_scalp(self):
         if not self._reseat_on_scalp():
@@ -1115,32 +1073,26 @@ class PlannerWindow:
                         pass
             return
         item = self._current()
-        if item is not None and item.get("kind") != "marker":
+        if item is not None:
             plotter.add_mesh(pv.Sphere(radius=2.0, center=self._target_world(item)), color="red", name="target")
         if float(self.offset_mm) > 1.0:
             plotter.add_mesh(pv.Line(selected, placed), color="#00e5ff", line_width=3, name="beam")
             if self.tx_mesh is not None:
                 direction = placed - selected
-                mat = apply_twist(pose_matrix(selected, placed), self.twist_deg)
+                mat = brainsight_matrix(selected, self.ap_deg, self.lat_deg, self.twist_deg)
                 mesh = self.tx_mesh.copy(deep=True)
                 mesh.points = (mat[:3, :3] @ np.asarray(self.tx_mesh.points).T).T + placed
                 plotter.add_mesh(mesh, color="#3cb44b", name="tx")
                 _ = direction
 
-    def _saved_pose(self, item):
-        origin = self._target_world(item)
-        direction = self._direction(item.get("ap", 0.0), item.get("lat", 0.0))
-        return origin + direction * float(item.get("distance", 0.0))
-
     def _matrix(self, item):
         origin = self._target_world(item)
-        placed = self._saved_pose(item)
-        return apply_twist(pose_matrix(origin, placed), item.get("twist", 0.0))
+        return brainsight_matrix(origin, item.get("ap", 0.0), item.get("lat", 0.0), item.get("twist", 0.0))
 
     def _compute(self):
         item = self._current()
-        if item is None or self.m2m is None or item.get("kind") == "marker":
-            self._QMessageBox.warning(self.widget, "Planner", "Save the selection as a target first.")
+        if item is None or self.m2m is None:
+            self._QMessageBox.warning(self.widget, "Planner", "Add a target or trajectory first.")
             return
         item["name"] = self.name.text().strip() or item["name"]
         dest = self.m2m / trajectory_filename(item["name"])

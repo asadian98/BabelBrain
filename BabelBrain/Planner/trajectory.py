@@ -60,6 +60,31 @@ def pose_matrix(target_mm, transducer_mm) -> np.ndarray:
     return mat
 
 
+def brainsight_matrix(target_mm, ap_deg, lat_deg, twist_deg) -> np.ndarray:
+    """Version-14 pose. Location is the crosshair. AP, Lat, and Twist are the rotation.
+
+    Checked against Brainsight 2.5 exports: straight up is AP 0, Lat 0, Twist 0
+    with columns (-Y, +X, +Z). Lat rotates about Y, AP about X, Twist about the beam.
+    """
+    ap = np.deg2rad(float(ap_deg))
+    lat = np.deg2rad(float(lat_deg))
+    twist = np.deg2rad(float(twist_deg))
+    ca, sa = np.cos(ap), np.sin(ap)
+    cl, sl = np.cos(lat), np.sin(lat)
+    ry = np.array([[cl, 0.0, sl], [0.0, 1.0, 0.0], [-sl, 0.0, cl]])
+    rx = np.array([[1.0, 0.0, 0.0], [0.0, ca, sa], [0.0, -sa, ca]])
+    upright = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    rot = rx @ ry @ upright
+    cos, sin = np.cos(twist), np.sin(twist)
+    x_col, y_col = rot[:, 0].copy(), rot[:, 1].copy()
+    rot[:, 0] = cos * x_col + sin * y_col
+    rot[:, 1] = -sin * x_col + cos * y_col
+    mat = np.eye(4)
+    mat[:3, :3] = rot
+    mat[:3, 3] = np.asarray(target_mm, dtype=float).reshape(3)
+    return mat
+
+
 def write_trajectory(path, target_name: str, mat: np.ndarray, t1_path: str) -> None:
     """Write one target in the version-14 text BabelBrain already reads."""
     mat = np.asarray(mat, dtype=float)
