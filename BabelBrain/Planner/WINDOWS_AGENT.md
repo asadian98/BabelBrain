@@ -22,17 +22,16 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted `0b4ca73`. Overlay None, T2, Atlas, and STN can stay. Choosing a region centers the crosshair. No simulation. Do not upload the subject.
-
-AP and Lat still do not reseat on the scalp. Put `_reseat_on_scalp` back in `_angles_moved` when AP or Lat changes. The saved target stays fixed.
+STN file: FSL `STN-maxprob-thr25-0.5mm.nii.gz` (Forstmann, labels 1 left and 2 right). It is in the same MNI space as the SimNIBS MNI template. Warp with SimNIBS 4.6 `warp_volume(src, m2m, out, transformation_direction="mni2subject", transformation_type="nonl", reference=m2m/T1.nii.gz, order=0)`. That uses the m2m `toMNI` nonlinear field. `order=0` keeps labels. Output must match the T1 shape and affine. Same call for any other MNI atlas. No simulation. Do not upload the subject. Scalp sliders stay until the Mac user says otherwise.
 
 ### Reply
 
-- Commit tested: e30f002
-- Question: how was STN_atlas_scanner.nii.gz made on the Mac? Name the atlas, the command or script, and whether the warp was the m2m toMNI/MNI2Conform_nonl field.
-- The user wants a picker of atlases available online, each warped into the open subject's space the same way, then shown as an overlay with its own transparency.
-- No simulation. Do not upload the subject. AP and Lat still do not reseat.
-- Change needed: write those STN steps under Mac. Leave the scalp sliders as they are.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
