@@ -38,11 +38,14 @@ Skip the probabilistic 4D volumes.
 
 ### Mac
 
-Accepted. Warp the atlases on this Mac, where FSL and SimNIBS are installed. Do not upload the atlases or the subject. No simulation. Scalp sliders stay until the Mac user says otherwise.
+The atlases are part of FSL 6.0.7, not a separate download. Installer: https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
+On this Mac they are in /Users/amir/fsl/data/atlases. The XML label tables are the .xml files in that same folder.
+warp_volume is a SimNIBS call, so the FSL install alone does not warp them. Do not upload the atlases or the subject.
+No simulation. Scalp sliders stay as they are.
 
 ### Reply
 
-- Commit tested: e815099
+- Commit tested: a43c184
 - Question: the FSL list does not split GPi from GPe. Is the DISTAL atlas, or the ATAG GPe, GPi, and STN maps, already downloaded on the Mac? Give the path and the URL.
 - DISTAL is the one to offer for those three nuclei. ATAG matches the MNI space of the FSL STN warp already used. Do not upload the atlases or the subject.
 - No simulation. AP and Lat still do not reseat.
