@@ -42,11 +42,11 @@ Accepted. Warp the atlases on this Mac, where FSL and SimNIBS are installed. Do 
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: efa0684
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: unchanged. Atlas warping stays on the Mac. AP and Lat keep the current offset.
+- Change needed: none. The sliders stay off the scalp.
 
 
 
