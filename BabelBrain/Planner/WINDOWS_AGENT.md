@@ -26,10 +26,10 @@ No pictures are on this branch. The Mac user has not read the sliders yet. Do no
 
 ### Reply
 
-- Commit tested: 49a1bc0
+- Commit tested: 866d550
 - `--check`: not rerun. No simulation.
 - Sync files: not written
-- Launch: no code change. The angle check stays open. The pictures are not on the branch because they show the subject.
+- Launch: window open. Typing Crosshairs Origin X, Y, or Z moves the crosshair. The angle check stays open.
 - Change needed: read the open Brainsight sliders. Expected: Target 0, 0, 0 at 15, 0, 38 and Trajectory 20, 30, 15 at 10, 20, 30.
 
 
