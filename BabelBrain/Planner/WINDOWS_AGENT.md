@@ -36,13 +36,18 @@ Use the 1 mm max-prob label volumes under `/Users/amir/fsl/data/atlases`. Same `
 
 Skip the probabilistic 4D volumes.
 
+### Mac
+
+Accepted. Warp the atlases on this Mac, where FSL and SimNIBS are installed. Do not upload the atlases or the subject. No simulation. Scalp sliders stay until the Mac user says otherwise.
+
 ### Reply
 
-- Commit tested: 415d0df
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: unchanged. Those FSL atlases are not on this machine, and SimNIBS is not installed here, so nothing new was warped. AP and Lat keep the current offset.
-- Change needed: none for the sliders. The atlas files stay on the Mac and must not be uploaded.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
