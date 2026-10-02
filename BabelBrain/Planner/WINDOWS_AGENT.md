@@ -28,11 +28,11 @@ AP and Lat still do not reseat on the scalp. Put `_reseat_on_scalp` back in `_an
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 0b4ca73
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: overlays stay. AP and Lat keep the current offset. Only Bring transducer to scalp meets the skin.
+- Change needed: none. The sliders were left off the scalp on purpose.
 
 
 
