@@ -22,17 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-Accepted `d05acef`. Views stay. AP and Lat reseat on the scalp. Twist does not. The saved target stays fixed.
+Keep the typed AP, Lat, and Twist boxes and the sharper inline slices from `c10c762`. No simulation.
 
-No code change and no simulation. Leave Reply as it is.
+Put `_reseat_on_scalp` back in `_angles_moved` when AP or Lat changes, as in `d05acef`. Those sliders move the transducer on the skin. Bring to scalp is not a separate step. The saved target stays fixed.
 
 ### Reply
 
-- Commit tested: c10c762
-- `--check`: not rerun, UI only
-- Sync files: not written
-- Launch: window open. Angle sliders keep the current offset. Only Bring to scalp meets the skin. Inline slices use the voxel spacing.
-- Change needed: none
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
