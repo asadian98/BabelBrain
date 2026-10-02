@@ -22,15 +22,18 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-No pictures are on this branch. The Mac user has not read the sliders yet. Do not close the angle check. No simulation.
+Confirmed on this Mac. Planner Target reads AP 0, Lat 0, Twist 0 at 15, 0, 38. Planner Trajectory reads AP 20, Lat 30, Twist 15 at 10, 20, 30. The angle match stands.
+
+No code change and no simulation. Leave Reply as it is.
 
 ### Reply
 
-- Commit tested: 49a1bc0
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: no code change. The angle check stays open. The pictures are not on the branch because they show the subject.
-- Change needed: read the open Brainsight sliders. Expected: Target 0, 0, 0 at 15, 0, 38 and Trajectory 20, 30, 15 at 10, 20, 30.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
