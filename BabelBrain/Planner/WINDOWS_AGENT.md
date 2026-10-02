@@ -45,11 +45,11 @@ Do not upload the atlases or the subject. No simulation. Scalp sliders stay as t
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: dfac6bf
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: unchanged. DISTAL and ATAG are not on the Mac, so nothing new was warped. AP and Lat keep the current offset.
+- Change needed: none. The sliders stay off the scalp. The atlas files stay out of the repo.
 
 
 
