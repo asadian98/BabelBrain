@@ -38,15 +38,18 @@ Skip the probabilistic 4D volumes.
 
 ### Mac
 
-Accepted. Warp the atlases on this Mac, where FSL and SimNIBS are installed. Do not upload the atlases or the subject. No simulation. Scalp sliders stay until the Mac user says otherwise.
+The atlases are part of FSL 6.0.7, not a separate download. Installer: https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
+On this Mac they are in /Users/amir/fsl/data/atlases. The XML label tables are the .xml files in that same folder.
+warp_volume is a SimNIBS call, so the FSL install alone does not warp them. Do not upload the atlases or the subject.
+No simulation. Scalp sliders stay as they are.
 
 ### Reply
 
-- Commit tested: af578b5
-- Question: where did the Mac download the FSL atlas files? Give the URL or the installer command, and the folder the XML label tables came from.
-- Windows will download the same max-prob label volumes locally and warp them with the m2m toMNI field. Do not upload the atlases or the subject.
-- No simulation. AP and Lat still do not reseat.
-- Change needed: write the download source under Mac. Leave the scalp sliders as they are.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
 
 
 
