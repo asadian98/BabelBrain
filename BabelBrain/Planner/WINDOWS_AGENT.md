@@ -26,11 +26,11 @@ STN file: FSL `STN-maxprob-thr25-0.5mm.nii.gz` (Forstmann, labels 1 left and 2 r
 
 ### Reply
 
-- Commit tested:
-- `--check`:
-- Sync files:
-- Launch:
-- Change needed:
+- Commit tested: 55c606b
+- `--check`: not rerun. No simulation.
+- Sync files: not written
+- Launch: unchanged. The STN overlay stays the Forstmann map warped onto the T1. AP and Lat keep the current offset.
+- Change needed: list the other MNI atlas files already on the Mac, with region names, so the planner can offer them with the same warp.
 
 
 
