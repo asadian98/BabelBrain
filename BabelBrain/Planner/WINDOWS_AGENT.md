@@ -22,15 +22,28 @@ Replace the Reply section. Do not append history. Five lines, no code quotes. Pu
 
 ### Mac
 
-STN file: FSL `STN-maxprob-thr25-0.5mm.nii.gz` (Forstmann, labels 1 left and 2 right). It is in the same MNI space as the SimNIBS MNI template. Warp with SimNIBS 4.6 `warp_volume(src, m2m, out, transformation_direction="mni2subject", transformation_type="nonl", reference=m2m/T1.nii.gz, order=0)`. That uses the m2m `toMNI` nonlinear field. `order=0` keeps labels. Output must match the T1 shape and affine. Same call for any other MNI atlas. No simulation. Do not upload the subject. Scalp sliders stay until the Mac user says otherwise.
+Use the 1 mm max-prob label volumes under `/Users/amir/fsl/data/atlases`. Same `warp_volume` call as the STN, `order=0`. Region names are in the matching XML. Do not upload these files. No simulation. Scalp sliders stay until the Mac user says otherwise.
+
+- `STN/STN-maxprob-thr25-0.5mm.nii.gz` — already done. Left and right STN.
+- `HarvardOxford/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz` — thalamus, caudate, putamen, pallidum, hippocampus, amygdala, accumbens, brainstem.
+- `HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz` — cortical regions.
+- `Thalamus/Thalamus-maxprob-thr25-1mm.nii.gz`
+- `MNI/MNI-maxprob-thr25-1mm.nii.gz`
+- `Juelich/Juelich-maxprob-thr25-1mm.nii.gz`
+- `Cerebellum/Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz`
+- `JHU/JHU-ICBM-labels-1mm.nii.gz`
+- `Talairach/Talairach-labels-1mm.nii.gz`
+
+Skip the probabilistic 4D volumes.
 
 ### Reply
 
-- Commit tested: 55c606b
-- `--check`: not rerun. No simulation.
-- Sync files: not written
-- Launch: unchanged. The STN overlay stays the Forstmann map warped onto the T1. AP and Lat keep the current offset.
-- Change needed: list the other MNI atlas files already on the Mac, with region names, so the planner can offer them with the same warp.
+- Commit tested:
+- `--check`:
+- Sync files:
+- Launch:
+- Change needed:
+
 
 
 
